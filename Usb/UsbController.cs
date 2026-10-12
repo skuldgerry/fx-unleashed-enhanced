@@ -201,6 +201,39 @@ namespace User.FXProRpmSync
         /// <summary>Which LED (one of the wheel's button lights) sits under each wheel button (1-40), from the guided "press each button" step.</summary>
         public Dictionary<int, int> ButtonLeds = new Dictionary<int, int>();
 
+        /// <summary>
+        /// The map in use: the user's own (ButtonLeds) once any button is mapped, else the wheel's usual one, so a
+        /// button's light can be used (alerts on one button, lit while pressed) without mapping first.
+        /// </summary>
+        [Newtonsoft.Json.JsonIgnore]
+        public Dictionary<int, int> ButtonMap => ButtonLeds != null && ButtonLeds.Count > 0 ? ButtonLeds : UsualButtonMap();
+
+        /// <summary>Nothing was mapped by hand: ButtonMap is the wheel's usual map (empty for a wheel without one).</summary>
+        [Newtonsoft.Json.JsonIgnore]
+        public bool UsingUsualButtonMap => (ButtonLeds == null || ButtonLeds.Count == 0) && UsualButtonMap().Count > 0;
+
+        private Dictionary<int, int> usualMap;
+        private string usualMapFor;
+
+        /// <summary>
+        /// Which light is under which button on a wheel as it comes, where that is known. FX Pro: mapped by hand on one
+        /// wheel (2026-10-12, wheel app build 9); eleven buttons have fixed numbers, the dash button reports as DashSlot.
+        /// </summary>
+        public Dictionary<int, int> UsualButtonMap()
+        {
+            string key = ActiveWheel + "/" + DashSlot;
+            if (usualMap != null && usualMapFor == key) return usualMap;
+            var map = new Dictionary<int, int>();
+            if (Model == WheelModel.FxPro)
+            {
+                int[] buttons = { 20, 19, 5, 6, 7, 8, 3, 4, 2, 1, 21 }; // the button at lights 0..10
+                for (int led = 0; led < buttons.Length; led++) map[buttons[led]] = led;
+                if (DashSlot > 0 && !map.ContainsKey(DashSlot)) map[DashSlot] = 11;
+            }
+            usualMapFor = key;
+            return usualMap = map;
+        }
+
         /// <summary>The global preset (what cars and games without their own use).</summary>
         /// <remarks>Never saved: on load, Newtonsoft filled the profile this returns (one of UserLights) a second time,
         /// appending every list again, so the user's lights doubled on each SimHub start (LightsRepair undoes it).</remarks>
@@ -696,7 +729,7 @@ namespace User.FXProRpmSync
         {
             var sc = LightScenarios.Find(id);
             if (sc == null) return false;
-            scenarioRun = new ScenarioRun(sc, S.ActiveLights, model, S.ButtonLeds);
+            scenarioRun = new ScenarioRun(sc, S.ActiveLights, model, S.ButtonMap);
             demoDashId = null;
             demoOn = true;
             demo = null;
@@ -728,7 +761,7 @@ namespace User.FXProRpmSync
 
         private void StartHold(CarState state, LimiterLook carLimiter, int alert)
         {
-            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter, alert), S.ActiveLights, model, S.ButtonLeds);
+            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter, alert), S.ActiveLights, model, S.ButtonMap);
             demoDashId = null;
             demoOn = true;
             demo = null;
@@ -1863,7 +1896,7 @@ namespace User.FXProRpmSync
                         extras.PitSpeedLearned += () => plugin.SaveSettings();
                     }
                     moment.Extras = extras.Update(v, now, plugin.DashCarKey, plugin.LaunchFor(plugin.DashCarKey));
-                    engine.ButtonLeds = s.ButtonLeds;
+                    engine.ButtonLeds = s.ButtonMap;
                     frame = engine.Render(lights, v, source && !testing && !demoOn ? plugin.CurrentLightsLayout : null, now, reverseRev, moment);
                     LightsState += " · " + CarStateTracker.Name(moment.State).ToLowerInvariant();
                 }
@@ -1881,7 +1914,7 @@ namespace User.FXProRpmSync
         private LedColor[] PressOverlay(LedColor[] frame, UsbSettings s)
         {
             ulong down = plugin.Buttons?.Down ?? 0;
-            var map = s.ButtonLeds;
+            var map = s.ButtonMap;
             if (down == 0 || map == null || map.Count == 0) return frame;
             var (r, g, b) = LightEngine.Rgb(s.PressColor);
             var copy = (LedColor[])frame.Clone();

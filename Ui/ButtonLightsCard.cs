@@ -50,7 +50,12 @@ namespace User.FXProRpmSync
             var on = Theme.Switch("Light a button while it's pressed", S.PressLights, v => { S.PressLights = v; changed(); },
                 "Over any lights (presets, ATSR-Hub, alerts), while the plugin drives the wheel's lights.");
             side.Children.Add(on);
-            side.Children.Add(Theme.Field("Colour", new ColourField(S.PressColor, hex => { S.PressColor = hex; changed(); }), 90));
+            side.Children.Add(Theme.Field("Its colour", new ColourField(S.PressColor, hex => { S.PressColor = hex; changed(); }), 90));
+            // the map is its own thing: the switch above uses it, and so does an alert on a single button (each with its own colour)
+            side.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 6, 0, 14) });
+            side.Children.Add(Theme.Eyebrow("Which light is under which button"));
+            side.Children.Add(Theme.Note("What tells the plugin which light to use for a button: for the switch above, and for an alert on a single button (the # field of an alert, with the alert's own colour). " +
+                                         "It is one map for the whole wheel, not something to set for each use."));
             status = new TextBlock { Foreground = Theme.Text2, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8) };
             side.Children.Add(status);
             prompt = new TextBlock { Foreground = Theme.Red, FontFamily = Theme.Display, FontSize = 15, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10), Visibility = Visibility.Collapsed };
@@ -76,8 +81,9 @@ namespace User.FXProRpmSync
             int n = S.ButtonLeds.Values.Distinct().Count(led => leds.Contains(led));
             bool found = plugin.Buttons?.Found == true;
             status.Text = mapping >= 0 ? "Press the wheel button at the lit light. Skip lights without a button."
-                        : (n == 0 ? "Not mapped yet: map the buttons once, then pressing one lights it."
-                                  : $"{n} of {leds.Length} button lights mapped. Press a button to check: it lights here.")
+                        : (S.UsingUsualButtonMap ? $"Using the {model.Name}'s usual map ({S.ButtonMap.Count} buttons). Press a button to check: it lights here. If one lights the wrong light, map them yourself."
+                                  : n == 0 ? "Not mapped yet: map the buttons once, then pressing one lights it."
+                                  : $"{n} of {leds.Length} button lights mapped by you. Press a button to check: it lights here.")
                           + (found ? "" : " The wheel isn't being read on USB now (USB mode on and the wheel plugged in).");
             prompt.Visibility = mapping >= 0 ? Visibility.Visible : Visibility.Collapsed;
             prompt.Text = mapping >= 0 ? $"Light {mapping + 1} of {leds.Length}: press its button" : "";
@@ -140,7 +146,7 @@ namespace User.FXProRpmSync
             else
             {
                 ulong down = plugin.Buttons?.Down ?? 0;
-                foreach (var kv in S.ButtonLeds)
+                foreach (var kv in S.ButtonMap)
                     if (leds.Contains(kv.Value))
                         frame[kv.Value] = kv.Key >= 1 && kv.Key <= 64 && (down >> (kv.Key - 1) & 1) != 0
                             ? new LedColor(r, g, b, 90) : new LedColor(40, 40, 40, 30); // mapped: faintly lit

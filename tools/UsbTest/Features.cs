@@ -226,6 +226,20 @@ static class FeatureTests
               && older != null && older.Buttons.Count == 0 && older.HoldSeconds == 0);
         p.Alerts.Remove(one);
 
+        // the button map in use: the wheel's usual one until the user maps their own
+        var fresh = new UsbSettings();
+        Check("button map: an FX Pro starts with its usual map (12 lights, the dash button at its slot)", fresh.UsingUsualButtonMap && fresh.ButtonMap.Count == 12 && fresh.ButtonMap[4] == 7 && fresh.ButtonMap[20] == 0
+              && fresh.ButtonMap[fresh.DashSlot] == 11 && fresh.ButtonMap.Values.Distinct().Count() == 12 && fresh.ButtonLeds.Count == 0);
+        fresh.DashSlot = 41;
+        Check("button map: the dash button follows its slot", fresh.ButtonMap[41] == 11 && !fresh.ButtonMap.ContainsKey(36));
+        fresh.ButtonLeds[9] = 3;
+        Check("button map: the user's own map replaces it whole", !fresh.UsingUsualButtonMap && fresh.ButtonMap.Count == 1 && fresh.ButtonMap[9] == 3);
+        fresh.ButtonLeds.Clear();
+        Check("button map: cleared = the usual one again", fresh.UsingUsualButtonMap && fresh.ButtonMap.Count == 12);
+        Check("button map: the usual map is never saved as the user's", !Newtonsoft.Json.JsonConvert.SerializeObject(fresh).Contains("ButtonMap") && Newtonsoft.Json.JsonConvert.SerializeObject(fresh).Contains("\"ButtonLeds\":{}"));
+        fresh.SwapWheel(WheelModel.GtNeo);
+        Check("button map: a wheel without a known map has none", !fresh.UsingUsualButtonMap && fresh.ButtonMap.Count == 0);
+
         // new triggers
         v.Rpm = 7950;
         Check("rev limiter", LightEngine.Active(AlertTrigger.RevLimiter, v) && !LightEngine.Active(AlertTrigger.RevLimiter, new DashValues { Running = true, MaxRpm = 8000, Rpm = 7700 }));

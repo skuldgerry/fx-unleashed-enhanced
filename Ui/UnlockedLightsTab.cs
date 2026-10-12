@@ -478,7 +478,7 @@ namespace User.FXProRpmSync
             double t = clock.Elapsed.TotalSeconds;
             var live = previewState == CarState.Driving && carLimiterDraft == null && Usb?.Active == true && S.LightsEnabled ? Usb.LastFrame : null;
             var (pv, moment) = PreviewMoment(t);
-            bigEngine.ButtonLeds = S.ButtonLeds;
+            bigEngine.ButtonLeds = S.ButtonMap;
             big.Show(live ?? bigEngine.Render(S.ActiveLights, pv, null, t, false, moment));
             // the pattern previews: a sweep up to the shift point in the preset's colours
             bool blinkOn = (int)(t * 8) % 2 == 0;
@@ -1194,11 +1194,12 @@ namespace User.FXProRpmSync
             var buttons = new TextBox { Width = 40, Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(0), Text = string.Join(", ", a.Buttons ?? new List<int>()), VerticalAlignment = VerticalAlignment.Center };
             Action showButtons = () =>
             {
-                var unmapped = (a.Buttons ?? new List<int>()).Where(n => S.ButtonLeds == null || !S.ButtonLeds.ContainsKey(n)).ToList();
+                var unmapped = (a.Buttons ?? new List<int>()).Where(n => !S.ButtonMap.ContainsKey(n)).ToList();
                 buttons.BorderBrush = unmapped.Count > 0 ? Theme.Amber : Theme.Line2;
                 buttons.ToolTip = "Light a single button too: its number (several with commas), the number SimHub shows for it when you press it. Empty = none.\n" +
+                                  "Which light that is comes from the button map (Button lights card, at the bottom of this tab): the wheel's usual one until you map your own.\n" +
                                   "Deselect the groups to light only that button." +
-                                  (unmapped.Count > 0 ? $"\n\nButton {string.Join(", ", unmapped)} has no light mapped yet, so nothing lights: use \"Map the buttons\" in the Button lights card below." : "");
+                                  (unmapped.Count > 0 ? $"\n\nButton {string.Join(", ", unmapped)} has no light in the button map, so nothing lights: it isn't one of the lit buttons, or the map needs it (\"Which light is under which button\", in the Button lights card at the bottom of this tab)." : "");
             };
             buttons.LostFocus += (s, e) =>
             {
@@ -1262,14 +1263,20 @@ namespace User.FXProRpmSync
                 cond.LostFocus += (s, e) => { var c = cond.Text.Trim(); if (c != (a.Condition ?? "")) { a.Condition = c; Changed(); showHint(); } };
                 custom.Children.Add(new TextBlock { Text = "On while", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(cond);
-                var hold = new ComboBox { Width = 130, ToolTip = "For a value that is only true for an instant (iRacing's headlight flash, dcHeadlightFlash, is true for about 70 ms a press): " +
-                                                                 "the alert stays on this long after it was last true. Use the property itself, not a formula: formulas are read 10 times a second and can miss it." };
-                foreach (var (label, value) in new[] { ("Only while true", 0.0), ("0.5 s more", 0.5), ("1 s more", 1.0), ("1.5 s more", 1.5), ("2 s more", 2.0), ("2.5 s more", 2.5), ("3 s more", 3.0), ("5 s more", 5.0) })
-                    hold.Items.Add(new ComboBoxItem { Content = label, Tag = value });
-                hold.SelectedItem = hold.Items.Cast<ComboBoxItem>().OrderBy(i => Math.Abs((double)i.Tag - a.HoldSeconds)).First();
-                hold.SelectionChanged += (s, e) => { if (hold.SelectedItem is ComboBoxItem i) { a.HoldSeconds = (double)i.Tag; Changed(); } };
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                var hold = new TextBox { Width = 52, Text = a.HoldSeconds.ToString("0.##", inv), TextAlignment = TextAlignment.Right,
+                                         ToolTip = "Seconds the alert stays on after it was last true (0 = only while it is true; up to 60).\n" +
+                                                   "For a value that is only true for an instant: iRacing's headlight flash, dcHeadlightFlash, is true for about 70 ms a press. " +
+                                                   "Use the property itself, not a formula: formulas are read 10 times a second and can miss it." };
+                hold.LostFocus += (s, e) =>
+                {
+                    bool ok = double.TryParse(hold.Text.Trim().Replace(',', '.'), System.Globalization.NumberStyles.Float, inv, out var seconds) && seconds >= 0 && seconds <= 60;
+                    if (ok && Math.Abs(seconds - a.HoldSeconds) > 1e-6) { a.HoldSeconds = seconds; Changed(); }
+                    hold.Text = a.HoldSeconds.ToString("0.##", inv);
+                };
                 custom.Children.Add(new TextBlock { Text = "Stays on", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(hold);
+                custom.Children.Add(new TextBlock { Text = "s more", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
                 outer.Children.Add(custom);
                 showHint();
                 outer.Children.Add(hint);
