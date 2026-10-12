@@ -171,7 +171,17 @@ namespace User.FXProRpmSync
             });
             big.LedClicked += led => { if (Mine != null) { group = big.GroupOf(led); ShowEditor(); } };
             var side = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            side.Children.Add(Theme.Eyebrow("Preview"));
+            // the chips below only change the picture here; this keeps the wheel itself in the state picked (top right, as
+            // "Run the demo" is on the Wheel tab)
+            onWheel = Theme.Btn("Show on the wheel", ToggleHold, primary: true, icon: PlayGlyph);
+            onWheel.Margin = new Thickness(12, 0, 0, 0);
+            onWheel.VerticalAlignment = VerticalAlignment.Top;
+            onWheel.ToolTip = "Puts the wheel's lights in the state picked under \"Preview as\", with these lights, and keeps them there while you edit: no game needed.";
+            var head = new DockPanel { LastChildFill = true };
+            DockPanel.SetDock(onWheel, Dock.Right);
+            head.Children.Add(onWheel);
+            head.Children.Add(Theme.Eyebrow("Preview"));
+            side.Children.Add(head);
             bigName = Theme.Title("", 24);
             side.Children.Add(bigName);
             bigText = Theme.Note("", new Thickness(0, 6, 0, 14));
@@ -180,12 +190,6 @@ namespace User.FXProRpmSync
             stateChips = new WrapPanel { Margin = new Thickness(0, 2, 0, 12) };
             side.Children.Add(stateChips);
             BuildStateChips();
-            // the chips only change the picture here; this keeps the wheel itself in the state picked
-            var onWheelText = new TextBlock { Text = "Show on the wheel" };
-            onWheel = new Button { Content = onWheelText, Tag = onWheelText, Margin = new Thickness(0, 0, 0, 6), HorizontalAlignment = HorizontalAlignment.Left,
-                                   ToolTip = "Puts the wheel's lights in the state picked above, with these lights, and keeps them there while you edit: no game needed." };
-            onWheel.Click += (s, e) => ToggleHold();
-            side.Children.Add(onWheel);
             onWheelNote = new TextBlock { Foreground = Theme.Green, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12), MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
             side.Children.Add(onWheelNote);
             nameRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
@@ -542,7 +546,14 @@ namespace User.FXProRpmSync
             // ended elsewhere (a game started, a scenario was played, a section's stop button): the button follows
             var held = Usb?.HeldState;
             holding = held != null;
-            ((TextBlock)onWheel.Tag).Text = holding ? "Stop showing on the wheel" : "Show on the wheel";
+            if (holding != (onWheel.Tag as bool? ?? false))
+            {
+                onWheel.Tag = holding;
+                var label = new StackPanel { Orientation = Orientation.Horizontal };
+                label.Children.Add(new TextBlock { Text = holding ? StopGlyph : PlayGlyph, FontFamily = Theme.Icons, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+                label.Children.Add(new TextBlock { Text = holding ? "Stop showing on the wheel" : "Show on the wheel", VerticalAlignment = VerticalAlignment.Center });
+                onWheel.Content = label;
+            }
             onWheelNote.Text = holding ? $"The wheel is held in \"{CarStateTracker.Name(held.Value)}\" and follows what you pick and edit here, until you stop it, leave this tab or start a game." : "";
             onWheelNote.Visibility = holding ? Visibility.Visible : Visibility.Collapsed;
         }
