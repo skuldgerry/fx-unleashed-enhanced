@@ -316,6 +316,8 @@ namespace User.FXProRpmSync
         {
             UiProfiler.StartIfWanted(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PluginsData", "Common", "FXProRpmSync"));
             MigrateOldSettings();
+            // an import chosen in the About tab waits for this moment: the file below is the imported one from here on
+            ImportedAtStart = SettingsTransfer.ApplyPending(AppDomain.CurrentDomain.BaseDirectory, DateTime.Now);
             Settings = this.ReadCommonSettings("GeneralSettings", () => new FXProRpmSyncSettings { SettingsVersion = CurrentSettingsVersion });
             MigrateSettings(Settings);
             if (Settings.Originals == null) Settings.Originals = new Dictionary<string, string>();

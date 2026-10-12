@@ -14,6 +14,9 @@ namespace User.FXProRpmSync
         private static string SettingsFile =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PluginsData", "Common", "FXProRpmSyncPlugin.GeneralSettings.json");
 
+        /// <summary>What the settings import did at this start (SettingsTransfer.ApplyPending); null when none was waiting.</summary>
+        internal string ImportedAtStart { get; private set; }
+
         private static void MigrateSettings(FXProRpmSyncSettings s)
         {
             if (s.Updates == null) s.Updates = new UpdateSettings();
