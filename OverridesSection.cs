@@ -236,7 +236,7 @@ namespace User.FXProRpmSync
             afterAdd.Children.Add(new TextBlock { Text = "or start from a car's:", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, Margin = new Thickness(4, 0, 8, 4) });
             afterAdd.Children.Add(MakeButton("Two white dots (BMW M4 GT3)", () => AddPhase(new RevPhase { AboveShiftRpm = 350, Look = PhaseLook.Centre, Count = 2, Color1 = LedPalette.White }), 8));
             afterAdd.Children.Add(MakeButton("Blue near the limiter (Corvette Z06 GT3.R)", () => AddPhase(new RevPhase { AboveShiftRpm = 300, Look = PhaseLook.All, Color1 = LedPalette.Blue }), 8));
-            afterAdd.Children.Add(MakeButton("Blue and red taking turns (McLaren 720S GT3)", () => AddPhase(new RevPhase { AboveShiftRpm = 0, Look = PhaseLook.Alternate, Color1 = LedPalette.Blue, Color2 = LedPalette.Red, BlinkHz = 4 }), 8));
+            afterAdd.Children.Add(MakeButton("Red and blue, one light step on (McLaren 720S GT3)", () => AddPhase(new RevPhase { AboveSteps = 1, Look = PhaseLook.Alternate, Color1 = LedPalette.Red, Color2 = LedPalette.Blue }), 8));
             afterPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
             afterPanel.Children.Add(Small("PAST THE SHIFT POINT"));
             afterPanel.Children.Add(Muted("What the bar does when you rev past the shift point, in stages: each starts so many rpm above it (0 = at the shift point, in place of the flash), so it follows the " +
@@ -425,7 +425,20 @@ namespace User.FXProRpmSync
 
                 row.Children.Add(Label("From", 0));
                 row.Children.Add(above);
-                row.Children.Add(Label("rpm above:", 6));
+                row.Children.Add(Label("rpm and", 6));
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                var steps = new TextBox { Width = 40, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Text = p.AboveSteps.ToString("0.##", inv),
+                                          ToolTip = "Plus this many steps of the car's own light spacing in each gear (the gap from its last light to the shift point). " +
+                                                    "For a stage that comes \"one more light\" after the shift point, whatever the gear: 1. Otherwise 0." };
+                steps.TextChanged += (s, e) =>
+                {
+                    if (loading) return;
+                    bool ok = double.TryParse(steps.Text.Replace(',', '.'), System.Globalization.NumberStyles.Float, inv, out var v) && v >= 0 && v <= 10;
+                    steps.BorderBrush = ok ? null : ErrorBrush;
+                    if (ok) { p.AboveSteps = v; Changed(); }
+                };
+                row.Children.Add(steps);
+                row.Children.Add(Label("light steps above:", 6));
                 row.Children.Add(look);
                 row.Children.Add(c1);
                 row.Children.Add(c2);

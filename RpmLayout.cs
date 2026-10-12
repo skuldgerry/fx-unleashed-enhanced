@@ -45,10 +45,30 @@ namespace User.FXProRpmSync
             if (After == null || After.Count == 0) return null;
             int shift = ShiftRpm;
             if (shift <= 0) return null;
+            int step = StepBelowShift;
             RevPhase best = null;
+            double bestAt = 0;
             foreach (var p in After)
-                if (p != null && rpm >= shift + Math.Max(0, p.AboveShiftRpm) && (best == null || p.AboveShiftRpm >= best.AboveShiftRpm)) best = p;
+            {
+                if (p == null) continue;
+                double at = shift + p.StartAbove(step);
+                if (rpm >= at && (best == null || at >= bestAt)) { best = p; bestAt = at; }
+            }
             return best;
+        }
+
+        /// <summary>
+        /// The last step of the bar: from the highest light below the shift point up to it (0 when there is none). Cars
+        /// space their lights closer in the higher gears, and a stage past the shift point can be one more such step on.
+        /// </summary>
+        public int StepBelowShift
+        {
+            get
+            {
+                int shift = ShiftRpm, below = 0;
+                foreach (var r in Rpm) if (r > below && r < shift) below = r;
+                return below > 0 ? shift - below : 0;
+            }
         }
 
         /// <summary>Whether LED i is lit at rpm (its own RPM reached, and not yet past its off RPM).</summary>
@@ -311,6 +331,16 @@ namespace User.FXProRpmSync
     {
         /// <summary>Rpm above the shift point (the flash, or the last light) where it starts; 0 = at the shift point, in place of the flash.</summary>
         public int AboveShiftRpm;
+        /// <summary>
+        /// Added to AboveShiftRpm: so many steps of the car's own light spacing in that gear (RpmLayout.StepBelowShift).
+        /// The McLaren 720S GT3's blue and red come exactly one step after its all blue, in every gear, though the
+        /// step is 258 rpm in first and 119 in fifth.
+        /// </summary>
+        public double AboveSteps;
+
+        /// <summary>Rpm above the shift point where it starts, for a bar whose last step is `step` rpm.</summary>
+        public double StartAbove(int step) => Math.Max(0, AboveShiftRpm) + Math.Max(0, AboveSteps) * step;
+
         public PhaseLook Look = PhaseLook.All;
         public string Color1 = "#eeeeee";
         /// <summary>Alternate: the colour of every other light.</summary>
@@ -325,7 +355,8 @@ namespace User.FXProRpmSync
         [Newtonsoft.Json.JsonIgnore]
         public string Summary =>
             (Look == PhaseLook.Alternate ? "two colours taking turns" : Look == PhaseLook.Centre ? $"{Math.Max(1, Count)} lights in the middle" : "one colour") +
-            (AboveShiftRpm > 0 ? $" from {AboveShiftRpm} rpm above" : " at the shift point");
+            (AboveSteps > 0 ? $" from {AboveSteps:0.##} light step{(AboveSteps == 1 ? "" : "s")}{(AboveShiftRpm > 0 ? $" and {AboveShiftRpm} rpm" : "")} above"
+             : AboveShiftRpm > 0 ? $" from {AboveShiftRpm} rpm above" : " at the shift point");
 
         /// <summary>The colour of light `i` of `n` at time `now`; null = dark.</summary>
         public string ColourAt(int i, int n, double now)
@@ -357,10 +388,12 @@ namespace User.FXProRpmSync
             // BMW M4 GT3 (iRacing), measured 2026-10-12 over a lap of the Nordschleife (8460 frames with rpm and gear): all red
             // from 6550-6675 by gear, then from about 6900-7000 the bar goes out but for two white dots in the middle
             ["IRacing | bmwm4gt3"] = new[] { new RevPhase { AboveShiftRpm = 350, Look = PhaseLook.Centre, Count = 2, Color1 = "#FFFFFF" } },
-            // McLaren 720S GT3 (iRacing): the shift point in the light data is right; what the data can't say is that the bar
-            // is blue and red at once there instead of all blue (iRacing's manual for the car, page 10). So no rpm of its own:
-            // it takes the flash's place. Steady here: whether the two colours trade places, and how fast, is not measured yet.
-            ["IRacing | mclaren720sgt3"] = new[] { new RevPhase { AboveShiftRpm = 0, Look = PhaseLook.Alternate, Color1 = "#0000FF", Color2 = "#FF0000" } },
+            // McLaren 720S GT3 (iRacing), measured 2026-10-12 (2674 frames of the car's dash with rpm and gear): the light data
+            // is right up to all blue; then the bar turns red and blue on every other light (R B R B R R B R B R on its 10, the
+            // ends red), steady, never trading places. It comes one step of the car's own light spacing after the blue in
+            // every gear: +250 rpm in 1st, +203 in 2nd, +181 in 3rd, +150 in 4th, +119 in 5th, the spacing being 258, 197,
+            // 161, 136 and 119.
+            ["IRacing | mclaren720sgt3"] = new[] { new RevPhase { AboveSteps = 1, Look = PhaseLook.Alternate, Color1 = "#FF0000", Color2 = "#0000FF" } },
         };
 
         /// <summary>A fresh copy of the car's stages, or null when none are known.</summary>

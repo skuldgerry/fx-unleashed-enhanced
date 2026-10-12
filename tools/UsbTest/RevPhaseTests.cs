@@ -75,10 +75,19 @@ static class RevPhaseTests
         Check("phases: the BMW M4 GT3's two dots are known; an unmeasured car has none", known != null && known.Count == 1 && known[0].Look == PhaseLook.Centre && known[0].Count == 2
               && KnownRevPhases.For("IRacing | chevyvettez06rgt3") == null && KnownRevPhases.For(null) == null && KnownRevPhases.For("IRacing | bmwm4gt3")[0] != known[0]);
         var mclKnown = car.Clone(); mclKnown.After = KnownRevPhases.For("IRacing | mclaren720sgt3");
-        var atShift = at(mclKnown, 7000, "3", 0);
-        Check("phases: the McLaren 720S GT3 is blue and red at once at its own shift point, in every gear, nothing changed below it",
-              mclKnown.After?.Count == 1 && Enumerable.Range(0, 15).All(i => i % 2 == 0 ? Is(atShift[i], 0, 0, 255) : Is(atShift[i], 255, 0, 0))
-              && at(mclKnown, 7100, "4", 0).SequenceEqual(at(car, 7100, "4", 0), new SameLed()) && at(mclKnown, 7200, "4", 0).Any(c => Is(c, 0, 0, 255)));
+        // its stage comes one step of the bar's own spacing after the flash: here the flash is at 7000 (7200 in 4th)
+        int step3 = mclKnown.ForGear("3").StepBelowShift, step4 = mclKnown.ForGear("4").StepBelowShift;
+        var redBlue = at(mclKnown, 7000 + step3 + 5, "3", 0);
+        Check("phases: the step is the gap from the last light to the shift point, by gear", step3 > 0 && step3 < 1500 && step4 > step3 && step4 <= 200 + step3, step3 + " / " + step4);
+        Check("phases: the McLaren 720S GT3 keeps its flash, then goes red and blue one light step later, the ends red",
+              mclKnown.After?.Count == 1 && at(mclKnown, 7000 + step3 - 5, "3", 0).All(c => Is(c, 255, 0, 0))
+              && Enumerable.Range(0, 15).All(i => i % 2 == 0 ? Is(redBlue[i], 255, 0, 0) : Is(redBlue[i], 0, 0, 255))
+              && redBlue.SequenceEqual(at(mclKnown, 7000 + step3 + 5, "3", 0.37), new SameLed()));
+        Check("phases: and follows the gear's own step", at(mclKnown, 7200 + step4 - 5, "4", 0).All(c => Is(c, 255, 0, 0)) && at(mclKnown, 7200 + step4 + 5, "4", 0).Any(c => Is(c, 0, 0, 255)));
+        var real = new RpmLayout { FlashRpm = 7053 };
+        new[] { 5478, 5676, 5874, 6068, 6265, 6473, 6660, 6856, 7053, 7053 }.CopyTo(real.Rpm, 0);
+        real.After = KnownRevPhases.For("IRacing | mclaren720sgt3");
+        Check("phases: with the car's own second gear numbers that is 7250 rpm (measured: 7256)", real.StepBelowShift == 197 && real.PhaseAt(7249) == null && real.PhaseAt(7250) != null);
         var withKnown = car.Clone(); withKnown.After = known;
         Check("phases: an offset adjustment keeps the car's own stages", new CarOverride { OffsetRpm = 50 }.Apply(withKnown, null).After?.Count == 1);
         Check("phases: so does a pattern for that car", new CarOverride { Kind = OverrideKind.Pattern, Style = new FallbackStyle { Pattern = PatternKind.LeftToRight } }.Apply(withKnown, null).After?.Count == 1);
