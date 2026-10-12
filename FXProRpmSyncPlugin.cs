@@ -1264,6 +1264,12 @@ namespace User.FXProRpmSync
                     ? $"{game.Label} game data ({game.Car.Rev.Lights.Count} lights, {game.Car.Rev.Low}-{game.Car.Rev.High} rpm" + (game.Car.Rev.ColourGuessed ? ", some colours guessed" : "")
                       + (game.ReportedAs != null ? $", as {game.Car.CarId})" : ")")
                     : $"car database, {profile.MatchedBy} ({profile.LedNumber} LEDs" + (layout.Gears != null ? ", per gear)" : ")");
+                // what the car's own bar does past the shift point, for the cars where it was measured (the light data has no place for it)
+                if (unlocked && KnownRevPhases.For(t.CarKey) is List<RevPhase> known)
+                {
+                    layout.After = known;
+                    source += ", with its lights past the shift point";
+                }
             }
             else if (t.Anchors.Valid)
             {

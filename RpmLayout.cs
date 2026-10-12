@@ -32,6 +32,25 @@ namespace User.FXProRpmSync
         /// V8's pair moving inward. USB mode only; SimPro's lights can't switch an LED off.</summary>
         public int[] OffRpm;
 
+        /// <summary>
+        /// Optional: what the bar shows past the shift point, in stages (RevPhase), each from so many rpm above it. For
+        /// cars whose own lights don't end at the flash: two colours taking turns (McLaren 720S GT3), another colour near
+        /// the limiter (Corvette Z06 GT3.R), the bar going out but for two dots (BMW M4 GT3). USB mode only.
+        /// </summary>
+        public List<RevPhase> After;
+
+        /// <summary>The stage past the shift point that shows at rpm (the highest one reached), or null.</summary>
+        public RevPhase PhaseAt(double rpm)
+        {
+            if (After == null || After.Count == 0) return null;
+            int shift = ShiftRpm;
+            if (shift <= 0) return null;
+            RevPhase best = null;
+            foreach (var p in After)
+                if (p != null && rpm >= shift + Math.Max(0, p.AboveShiftRpm) && (best == null || p.AboveShiftRpm >= best.AboveShiftRpm)) best = p;
+            return best;
+        }
+
         /// <summary>Whether LED i is lit at rpm (its own RPM reached, and not yet past its off RPM).</summary>
         public bool Lit(int i, double rpm) => Rpm[i] > 0 && rpm >= Rpm[i] && !(OffRpm != null && OffRpm[i] > 0 && rpm >= OffRpm[i]);
 
@@ -42,6 +61,7 @@ namespace User.FXProRpmSync
             c.Colors = (string[])Colors.Clone();
             c.Gears = Gears?.ToDictionary(g => g.Key, g => g.Value.Clone());
             c.OffRpm = (int[])OffRpm?.Clone();
+            c.After = After?.Select(p => p?.Clone()).ToList();
             return c;
         }
 
@@ -278,6 +298,72 @@ namespace User.FXProRpmSync
         public bool SameAs(ShiftAnchors o) => Math.Abs(o.First - First) < 1 && Math.Abs(o.Last - Last) < 1 && Math.Abs(o.Blink - Blink) < 1;
     }
 
+    /// <summary>How a stage past the shift point looks: the whole bar in one colour, two colours on every other light
+    /// (taking turns when it blinks), or only the lights in the middle.</summary>
+    [Newtonsoft.Json.JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    public enum PhaseLook { All, Alternate, Centre }
+
+    /// <summary>
+    /// One stage of the rev bar past the shift point (RpmLayout.After). It starts so many rpm above the shift point
+    /// rather than at an rpm of its own, so it follows the car's shift point in every gear and any offset.
+    /// </summary>
+    public class RevPhase
+    {
+        /// <summary>Rpm above the shift point (the flash, or the last light) where it starts; 0 = at the shift point, in place of the flash.</summary>
+        public int AboveShiftRpm;
+        public PhaseLook Look = PhaseLook.All;
+        public string Color1 = "#eeeeee";
+        /// <summary>Alternate: the colour of every other light.</summary>
+        public string Color2 = "#ff0054";
+        /// <summary>Centre: how many lights in the middle stay lit.</summary>
+        public int Count = 2;
+        /// <summary>Blinks per second (0 = steady). Alternate: how often the two colours trade places.</summary>
+        public double BlinkHz;
+
+        public RevPhase Clone() => (RevPhase)MemberwiseClone();
+
+        [Newtonsoft.Json.JsonIgnore]
+        public string Summary =>
+            (Look == PhaseLook.Alternate ? "two colours taking turns" : Look == PhaseLook.Centre ? $"{Math.Max(1, Count)} lights in the middle" : "one colour") +
+            (AboveShiftRpm > 0 ? $" from {AboveShiftRpm} rpm above" : " at the shift point");
+
+        /// <summary>The colour of light `i` of `n` at time `now`; null = dark.</summary>
+        public string ColourAt(int i, int n, double now)
+        {
+            bool flip = BlinkHz > 0 && (int)(now * BlinkHz * 2) % 2 == 1;
+            switch (Look)
+            {
+                case PhaseLook.Alternate:
+                    return (i % 2 == 0) != flip ? Color1 : Color2;
+                case PhaseLook.Centre:
+                    int count = Math.Max(1, Math.Min(n, Count));
+                    int first = (n - count) / 2;
+                    return i >= first && i < first + count && !flip ? Color1 : null;
+                default:
+                    return flip ? null : Color1;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The lights past the shift point of the cars where they were measured in the game, by car key ("Game | CarId").
+    /// Only what was measured: a stage read from a manual, without its rpm or its rhythm, is not here (the Car tuning
+    /// editor has those as starting points to set by hand). A car's adjustment replaces or removes them.
+    /// </summary>
+    public static class KnownRevPhases
+    {
+        private static readonly Dictionary<string, RevPhase[]> known = new Dictionary<string, RevPhase[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            // BMW M4 GT3 (iRacing), measured 2026-10-12 over a lap of the Nordschleife (8460 frames with rpm and gear): all red
+            // from 6550-6675 by gear, then from about 6900-7000 the bar goes out but for two white dots in the middle
+            ["IRacing | bmwm4gt3"] = new[] { new RevPhase { AboveShiftRpm = 350, Look = PhaseLook.Centre, Count = 2, Color1 = "#FFFFFF" } },
+        };
+
+        /// <summary>A fresh copy of the car's stages, or null when none are known.</summary>
+        public static List<RevPhase> For(string carKey) =>
+            carKey != null && known.TryGetValue(carKey, out var p) ? p.Select(x => x.Clone()).ToList() : null;
+    }
+
     public class GearCurve
     {
         public int[] Rpm = new int[RpmLightsMapper.WheelLeds];
@@ -302,10 +388,26 @@ namespace User.FXProRpmSync
         /// <summary>Calibrated: the measured best upshift per gear ("1", "2", ...; ShiftCalibrator).</summary>
         public Dictionary<string, int> ShiftByGear;
         public DateTime UpdatedUtc = DateTime.UtcNow;
+        /// <summary>
+        /// What this car's bar shows past the shift point (RpmLayout.After), on top of whatever Kind does to the lights
+        /// up to it. USB mode only. Null = the car's own, where the plugin knows them (KnownRevPhases); an empty list =
+        /// none (the flash stays to the limiter), which is also how the car's own are switched off.
+        /// </summary>
+        public List<RevPhase> After;
 
         /// <param name="baseLayout">The car's own lights (database or fallback); null when unknown.</param>
         /// <param name="presetTemplate">The SimPro preset's original rpm_lights, for the "your preset" pattern.</param>
         public RpmLayout Apply(RpmLayout baseLayout, Newtonsoft.Json.Linq.JObject presetTemplate)
+        {
+            var layout = UpToShift(baseLayout, presetTemplate);
+            if (layout == null) return null;
+            // this adjustment's own stages, or else the car's (a custom layout or a pattern starts without them)
+            var after = After ?? baseLayout?.After;
+            layout.After = after == null || after.Count == 0 ? null : after.Where(p => p != null).Select(p => p.Clone()).ToList();
+            return layout;
+        }
+
+        private RpmLayout UpToShift(RpmLayout baseLayout, Newtonsoft.Json.Linq.JObject presetTemplate)
         {
             switch (Kind)
             {
@@ -321,7 +423,9 @@ namespace User.FXProRpmSync
             }
         }
 
-        public string Summary
+        public string Summary => UpToShiftSummary + (After != null && After.Count > 0 ? $"; past the shift point: {string.Join(", then ", After.Where(p => p != null).OrderBy(p => p.AboveShiftRpm).Select(p => p.Summary))}" : "");
+
+        private string UpToShiftSummary
         {
             get
             {
@@ -345,6 +449,7 @@ namespace User.FXProRpmSync
             c.Custom = Custom?.Clone();
             c.Style = Style?.Clone();
             c.ShiftByGear = ShiftByGear == null ? null : new Dictionary<string, int>(ShiftByGear);
+            c.After = After?.Select(p => p?.Clone()).ToList();
             return c;
         }
 

@@ -32,6 +32,7 @@ static class FeatureTests
         LightStateTests.Run();
         CalibrationTests.Run();
         CarLightsTests.Run();
+        RevPhaseTests.Run();
         ScenarioTests.Run(dir);
         PerDashRam();
         PagesTests.Run();
