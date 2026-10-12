@@ -712,20 +712,23 @@ namespace User.FXProRpmSync
         /// look can be judged on the wheel without a game. Called again after an edit, it shows the edit. Ends with
         /// StopScenario, another scenario, or a game sending data (RunFrame).
         /// </summary>
-        public bool HoldState(CarState state, LimiterLook carLimiter = null)
+        public bool HoldState(CarState state, LimiterLook carLimiter = null, int alert = -1)
         {
             if (GameSending) return false;
-            StartHold(state, carLimiter);
+            StartHold(state, carLimiter, alert);
             return true;
         }
+
+        /// <summary>The alert shown as if it were on in the held state (its place in the preset's list), or -1.</summary>
+        public int HeldAlert => scenarioRun?.Scenario.HoldAlert ?? -1;
 
         private long gameTicks;
         /// <summary>A game is sending data now. Unlike LiveFresh this stays true under a demo or a scenario, which replace the values the wheel shows.</summary>
         public bool GameSending => DateTime.UtcNow.Ticks - Interlocked.Read(ref gameTicks) < TimeSpan.FromSeconds(2).Ticks;
 
-        private void StartHold(CarState state, LimiterLook carLimiter)
+        private void StartHold(CarState state, LimiterLook carLimiter, int alert)
         {
-            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter), S.ActiveLights, model, S.ButtonLeds);
+            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter, alert), S.ActiveLights, model, S.ButtonLeds);
             demoDashId = null;
             demoOn = true;
             demo = null;

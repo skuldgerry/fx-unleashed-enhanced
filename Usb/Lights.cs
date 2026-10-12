@@ -835,7 +835,8 @@ namespace User.FXProRpmSync
             {
                 if (only != null && Array.IndexOf(only, a.Trigger) < 0) continue;
                 bool on = a.Enabled && Active(a, v) && !(limiterOn && a.Trigger == AlertTrigger.PitLimiter);
-                if (a.HoldSeconds > 0 && a.Enabled && v != null && v.Running)
+                if (a == ForcedAlert) on = true;
+                else if (a.HoldSeconds > 0 && a.Enabled && v != null && v.Running)
                 {
                     // a pulse (true for a frame or two) keeps the alert on for its hold time; each new pulse starts the time again
                     if (on) alertLastTrue[a] = now;
@@ -865,6 +866,9 @@ namespace User.FXProRpmSync
         private readonly Dictionary<AlertRule, double> alertSince = new Dictionary<AlertRule, double>();
         /// <summary>When the condition of each alert with a hold time was last true (engine time).</summary>
         private readonly Dictionary<AlertRule, double> alertLastTrue = new Dictionary<AlertRule, double>();
+
+        /// <summary>An alert of the profile being drawn that shows as if it were on, whatever its condition and switch say (trying one alert on the wheel).</summary>
+        public AlertRule ForcedAlert;
 
         /// <summary>Which light sits under each wheel button (UsbSettings.ButtonLeds), for alerts on single buttons; null = none mapped.</summary>
         public Dictionary<int, int> ButtonLeds;

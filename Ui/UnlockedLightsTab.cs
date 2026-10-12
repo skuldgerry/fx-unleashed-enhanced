@@ -538,7 +538,11 @@ namespace User.FXProRpmSync
         /// <summary>The lights changed while a state is held: the wheel takes the new ones.</summary>
         private void Rehold()
         {
-            if (Usb?.HeldState is CarState held) Usb.HoldState(held, plugin.CarLimiterFor(plugin.DashCarKey));
+            if (!(Usb?.HeldState is CarState held)) return;
+            // an alert being tried is found again by itself: the list may have been reordered, or the alert deleted
+            int alert = Usb.HeldAlert >= 0 && triedAlert != null && Mine != null ? Mine.Alerts.IndexOf(triedAlert) : -1;
+            if (Usb.HeldAlert >= 0 && alert < 0) { Usb.StopScenario(); return; }
+            Usb.HoldState(held, plugin.CarLimiterFor(plugin.DashCarKey), alert);
         }
 
         private void ShowHold()
@@ -554,7 +558,7 @@ namespace User.FXProRpmSync
                 label.Children.Add(new TextBlock { Text = holding ? "Stop showing on the wheel" : "Show on the wheel", VerticalAlignment = VerticalAlignment.Center });
                 onWheel.Content = label;
             }
-            onWheelNote.Text = holding ? $"The wheel is held in \"{CarStateTracker.Name(held.Value)}\" and follows what you pick and edit here, until you stop it, leave this tab or start a game." : "";
+            onWheelNote.Text = holding ? $"The wheel is held in \"{CarStateTracker.Name(held.Value)}\"{(Usb.HeldAlert >= 0 ? " with one alert on" : "")} and follows what you pick and edit here, until you stop it, leave this tab or start a game." : "";
             onWheelNote.Visibility = holding ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -937,13 +941,14 @@ namespace User.FXProRpmSync
         {
             foreach (var r in fixedPlays) r();
             foreach (var r in editorPlays) r();
+            foreach (var r in alertPlays) r();
         }
 
         /// <summary>
         /// A play button that turns into stop while what it started is on the wheel, with an info mark beside it whose
         /// tooltip says what to look for. `fixedPart`: built once (outside the part ShowEditor rebuilds).
         /// </summary>
-        private StackPanel PlayButton(Func<bool> active, Func<bool> start, string what, string info, bool fixedPart = false)
+        private StackPanel PlayButton(Func<bool> active, Func<bool> start, string what, string info, bool fixedPart = false, List<Action> into = null)
         {
             var glyph = new TextBlock { FontFamily = Theme.Icons, FontSize = 12 };
             var button = new Button { Content = glyph, Width = 30, Height = 28, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center };
@@ -962,7 +967,7 @@ namespace User.FXProRpmSync
                 else start();
                 RefreshPlays(); ShowHold(); RefreshState();
             };
-            (fixedPart ? fixedPlays : editorPlays).Add(refresh);
+            (into ?? (fixedPart ? fixedPlays : editorPlays)).Add(refresh);
             refresh();
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             panel.Children.Add(button);
@@ -993,7 +998,7 @@ namespace User.FXProRpmSync
         /// right here shows on the wheel at once (the same thing as "Show on the wheel" at the top, where it's needed).
         /// </summary>
         private StackPanel HoldPlay(Func<CarState> state, string info, bool fixedPart = false) =>
-            PlayButton(() => Usb?.HeldState == state(), () => HoldOnWheel(state()),
+            PlayButton(() => Usb?.HeldState == state() && Usb.HeldAlert < 0, () => HoldOnWheel(state()),
                        "Put the wheel in this state and keep it there while you change things here",
                        info + "\n\nThe wheel stays like this, following every change you make, until you press stop, leave this tab or start a game.", fixedPart);
 
@@ -1131,10 +1136,15 @@ namespace User.FXProRpmSync
                 p.Extras.Launch, v => p.Extras.Launch = v, "launch");
         }
 
+        private readonly List<Action> alertPlays = new List<Action>();
+        /// <summary>The alert being tried on the wheel (each alert's play button): shown as if it were on, over the driving lights.</summary>
+        private AlertRule triedAlert;
+
         private void BuildAlerts(LightProfile p)
         {
             bool was = loading;
             loading = true;
+            alertPlays.Clear();
             alertList.Children.Clear();
             for (int i = 0; i < p.Alerts.Count; i++) alertList.Children.Add(AlertRow(p, i));
             loading = was;
@@ -1170,7 +1180,7 @@ namespace User.FXProRpmSync
                 var gg = g;
                 var chip = new ToggleButton
                 {
-                    Content = GroupName(g).Replace(" lights", ""), IsChecked = a.Groups.Contains(g), Margin = new Thickness(0, 0, 6, 0), Padding = new Thickness(9, 3, 9, 4),
+                    Content = GroupName(g).Replace(" lights", ""), IsChecked = a.Groups.Contains(g), Margin = new Thickness(0, 0, 4, 0), Padding = new Thickness(8, 3, 8, 4),
                     Foreground = Theme.Text2, Background = Theme.Raised, BorderBrush = Theme.Line2, FontSize = 11.5, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center,
                 };
                 Action paint = () => { chip.Background = chip.IsChecked == true ? Theme.RedWash : Theme.Raised; chip.BorderBrush = chip.IsChecked == true ? Theme.Red : Theme.Line2; chip.Foreground = chip.IsChecked == true ? Theme.Text : Theme.Text3; };
@@ -1201,17 +1211,29 @@ namespace User.FXProRpmSync
             showButtons();
             row.Children.Add(new TextBlock { Text = "#", Foreground = Theme.Text3, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0), ToolTip = "A single button's light, by its number" });
             row.Children.Add(buttons);
-            var hz = new ComboBox { Width = 108, Margin = new Thickness(6, 0, 0, 0) };
+            var hz = new ComboBox { Width = 110, Margin = new Thickness(6, 0, 0, 0) };
             foreach (var (label, value) in new[] { ("Steady", 0.0), ("Pulse 1/s", 1.0), ("Blink 2/s", 2.0), ("Blink 4/s", 4.0), ("Flicker 8/s", 8.0), ("Flicker 12/s", 12.0) })
                 hz.Items.Add(new ComboBoxItem { Content = label, Tag = value });
             hz.SelectedItem = hz.Items.Cast<ComboBoxItem>().OrderBy(i => Math.Abs((double)i.Tag - a.BlinkHz)).First();
             hz.SelectionChanged += (s, e) => { if (hz.SelectedItem is ComboBoxItem i) { a.BlinkHz = (double)i.Tag; Changed(); } };
             row.Children.Add(hz);
-            var style = new ComboBox { Width = 100, Margin = new Thickness(6, 0, 0, 0), ToolTip = "How it shows: all lights blinking, fading in and out, a band running along them, or every other light (chequered)" };
+            var style = new ComboBox { Width = 96, Margin = new Thickness(6, 0, 0, 0), ToolTip = "How it shows: all lights blinking, fading in and out, a band running along them, or every other light (chequered)" };
             foreach (AlertStyle st in Enum.GetValues(typeof(AlertStyle))) style.Items.Add(new ComboBoxItem { Content = LightPresets.StyleName(st), Tag = st });
             style.SelectedItem = style.Items.Cast<ComboBoxItem>().First(i => (AlertStyle)i.Tag == a.Style);
             style.SelectionChanged += (s, e) => { if (style.SelectedItem is ComboBoxItem i) { a.Style = (AlertStyle)i.Tag; Changed(); } };
             row.Children.Add(style);
+            // try this one alert on the wheel: on as if its moment had come, until stopped, following what is changed in the row
+            var tryIt = PlayButton(() => Usb?.HeldAlert >= 0 && triedAlert == a,
+                () =>
+                {
+                    if (!HoldOnWheel(CarState.Driving)) return false;
+                    triedAlert = a;
+                    return Usb.HoldState(CarState.Driving, plugin.CarLimiterFor(plugin.DashCarKey), p.Alerts.IndexOf(a));
+                },
+                "Show this alert on the wheel as if it were on, over the driving lights, and keep it there: change its colour, lights, rhythm or style and see it at once",
+                null, into: alertPlays);
+            tryIt.Margin = new Thickness(6, 0, 0, 0);
+            row.Children.Add(tryIt);
 
             if (a.Trigger == AlertTrigger.Custom)
             {

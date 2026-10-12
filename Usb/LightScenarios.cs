@@ -24,6 +24,8 @@ namespace User.FXProRpmSync
         /// in this state, start-up and shutdown playing over and over, as the tab's own preview does.
         /// </summary>
         public CarState? Hold;
+        /// <summary>Hold: one alert of the preset (its place in the list) shown as if it were on, to try it; -1 = none.</summary>
+        public int HoldAlert = -1;
         /// <summary>Hold: the pit limiter lights of the car being driven (null = the preset's).</summary>
         internal LimiterLook HoldLimiter;
 
@@ -79,6 +81,7 @@ namespace User.FXProRpmSync
             scenario.Prepare(profile);
             layout = scenario.MakeLayout?.Invoke(profile);
             engine = new LightEngine(model) { ButtonLeds = buttonLeds };
+            if (scenario.HoldAlert >= 0 && scenario.HoldAlert < profile.Alerts.Count) engine.ForcedAlert = profile.Alerts[scenario.HoldAlert];
             extras = new RevExtrasState(() => pitSpeeds, d => { foreach (var kv in d) pitSpeeds[kv.Key] = kv.Value; });
         }
 
@@ -116,8 +119,8 @@ namespace User.FXProRpmSync
         private static DashValues With(this DashValues v, string key, object value) { v.Set(key, value); return v; }
 
         /// <summary>One car state held on the wheel ("Show on the wheel"), with the car's own pit limiter lights if it has them.</summary>
-        public static LightScenario Held(CarState state, LimiterLook carLimiter = null) =>
-            new LightScenario { Id = "hold-" + state, Title = "On the wheel: " + CarStateTracker.Name(state), Expect = "", Hold = state, HoldLimiter = carLimiter };
+        public static LightScenario Held(CarState state, LimiterLook carLimiter = null, int alert = -1) =>
+            new LightScenario { Id = "hold-" + state, Title = "On the wheel: " + CarStateTracker.Name(state) + (alert >= 0 ? ", one alert on" : ""), Expect = "", Hold = state, HoldLimiter = carLimiter, HoldAlert = alert };
 
         /// <summary>What the car and game would be doing in a state that is previewed or held (`t`: seconds, for the lap while driving).</summary>
         public static DashValues HoldValues(CarState state, double t)
