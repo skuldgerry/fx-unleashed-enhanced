@@ -180,6 +180,14 @@ namespace User.FXProRpmSync
             stateChips = new WrapPanel { Margin = new Thickness(0, 2, 0, 12) };
             side.Children.Add(stateChips);
             BuildStateChips();
+            // the chips only change the picture here; this keeps the wheel itself in the state picked
+            var onWheelText = new TextBlock { Text = "Show on the wheel" };
+            onWheel = new Button { Content = onWheelText, Tag = onWheelText, Margin = new Thickness(0, 0, 0, 6), HorizontalAlignment = HorizontalAlignment.Left,
+                                   ToolTip = "Puts the wheel's lights in the state picked above, with these lights, and keeps them there while you edit: no game needed." };
+            onWheel.Click += (s, e) => ToggleHold();
+            side.Children.Add(onWheel);
+            onWheelNote = new TextBlock { Foreground = Theme.Green, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12), MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Left, Visibility = Visibility.Collapsed };
+            side.Children.Add(onWheelNote);
             nameRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
             nameBox = new TextBox { Width = 240 };
             nameBox.LostFocus += (s, e) => Rename();
@@ -266,7 +274,7 @@ namespace User.FXProRpmSync
                 var (wheelDash, id) = plugin.UsbDashFor(plugin.DashCarKey);
                 big.Screen.Source = wheelDash ? null : DashPictures.Still(DashCache.Find(id) ?? BuiltInDashes.MustangGt3(), S.RamFor(id ?? BuiltInDashes.MustangId));
             };
-            Unloaded += (s, e) => { frameTimer.Stop(); slowTimer.Stop(); if (saveTimer.IsEnabled) { saveTimer.Stop(); plugin.SaveSettings(); } };
+            Unloaded += (s, e) => { frameTimer.Stop(); slowTimer.Stop(); if (holding) { holding = false; if (Usb?.HeldState != null) Usb.StopScenario(); ShowHold(); } if (saveTimer.IsEnabled) { saveTimer.Stop(); plugin.SaveSettings(); } };
 
             ShowSource();
             UiProfiler.Lap("lights timers + ShowSource");
@@ -305,6 +313,7 @@ namespace User.FXProRpmSync
         {
             if (loading) return;
             Usb?.SettingsChanged();
+            Rehold();
             plugin.Reapply(); // the current car's rev lights come from the preset when it has no data
             saveTimer.Stop();
             saveTimer.Start();
@@ -325,10 +334,12 @@ namespace User.FXProRpmSync
             // the per-car limiter card follows the car being driven (not while something is being edited)
             if (carLimiterDraft == null && (plugin.DashCarKey ?? "") != limiterCar) { limiterCar = plugin.DashCarKey ?? ""; BuildCarLimiter(); }
             if ((plugin.DashCarKey ?? "") != launchCar) { launchCar = plugin.DashCarKey ?? ""; BuildCarLaunch(); }
+            if (holding) ShowHold();
             if (scenarioStatus != null)
             {
                 var playing = Usb?.ScenarioNow;
-                scenarioStatus.Text = playing != null ? $"Playing \"{playing.Title}\"  ·  {Usb.ScenarioElapsed:0} of {playing.Seconds:0} s  ·  {Usb.ScenarioNote}"
+                scenarioStatus.Text = playing?.Hold != null ? $"\"{playing.Title}\": {Usb.ScenarioNote}."
+                                    : playing != null ? $"Playing \"{playing.Title}\"  ·  {Usb.ScenarioElapsed:0} of {playing.Seconds:0} s  ·  {Usb.ScenarioNote}"
                                     : Usb?.Active == true ? "Pick one to play on the wheel." : "The wheel isn't connected in USB mode right now (the Wheel tab says why).";
             }
             var u = Usb;
@@ -459,9 +470,8 @@ namespace User.FXProRpmSync
         private void RenderFrame()
         {
             double t = clock.Elapsed.TotalSeconds;
-            var sim = SimLap.Values(t);
             var live = previewState == CarState.Driving && carLimiterDraft == null && Usb?.Active == true && S.LightsEnabled ? Usb.LastFrame : null;
-            var (pv, moment) = PreviewMoment(t, sim);
+            var (pv, moment) = PreviewMoment(t);
             big.Show(live ?? bigEngine.Render(S.ActiveLights, pv, null, t, false, moment));
             // the pattern previews: a sweep up to the shift point in the preset's colours
             bool blinkOn = (int)(t * 8) % 2 == 0;
@@ -481,22 +491,44 @@ namespace User.FXProRpmSync
         }
 
         /// <summary>The simulated values and moment for the state being previewed (the start-up and shutdown loop).</summary>
-        private (DashValues, LightMoment) PreviewMoment(double t, DashValues sim)
+        private (DashValues, LightMoment) PreviewMoment(double t)
         {
+            // the same values and timing as the state held on the wheel ("Show on the wheel"), so the two match
             var state = carLimiterDraft != null ? CarState.PitLimiter : previewState;
-            double progress = 0;
-            if (state == CarState.Starting || state == CarState.Stopping)
-            {
-                // play it, hold the end for a moment, again
-                double len = state == CarState.Starting ? CarStateTracker.StartSeconds : CarStateTracker.StopSeconds;
-                progress = Math.Min(1, t % (len + 1.2) / len);
-            }
-            DashValues v = sim;
-            if (state == CarState.Idle) v = new DashValues();
-            else if (state == CarState.Menu || state == CarState.EngineOff) { v = SimLap.Values(0); v.Rpm = 0; v.AbsActive = v.TcActive = v.SpotterLeft = v.SpotterRight = false; v.InMenu = state == CarState.Menu; }
-            else if (state == CarState.PitLimiter) { v.Rpm = 3400; v.PitLimiter = true; v.AbsActive = v.TcActive = false; }
-            else if (state == CarState.Starting) v.Rpm = 900;
-            return (v, LightMoment.Of(state, progress, carLimiterDraft ?? plugin.CarLimiterFor(plugin.DashCarKey)));
+            return (LightScenarios.HoldValues(state, t), LightMoment.Of(state, LightScenarios.HoldProgress(state, t), carLimiterDraft ?? plugin.CarLimiterFor(plugin.DashCarKey)));
+        }
+
+        /// <summary>"Show on the wheel" is on: the wheel is kept in the state picked under "Preview as", and follows it and every edit.</summary>
+        private bool holding;
+        private Button onWheel;
+        private TextBlock onWheelNote;
+
+        private void ToggleHold()
+        {
+            if (holding) { holding = false; Usb?.StopScenario(); }
+            else if (Usb?.Active != true)
+                MessageBox.Show(Window.GetWindow(this), "The wheel isn't connected in USB mode right now (the Wheel tab says why), so there's nothing to show it on.", "FX Unleashed", MessageBoxButton.OK, MessageBoxImage.Information);
+            else if (!S.LightsEnabled || S.LightsFrom != LightsSource.BuiltIn)
+                MessageBox.Show(Window.GetWindow(this), "These lights aren't the ones on the wheel now: switch \"Drive the wheel's lights\" on and take them from the plugin's own presets (top of this tab).", "FX Unleashed", MessageBoxButton.OK, MessageBoxImage.Information);
+            else if (!Usb.HoldState(previewState, plugin.CarLimiterFor(plugin.DashCarKey)))
+                MessageBox.Show(Window.GetWindow(this), "A game is running: the wheel shows the real thing.", "FX Unleashed", MessageBoxButton.OK, MessageBoxImage.Information);
+            else holding = true;
+            ShowHold();
+        }
+
+        /// <summary>The state or the lights changed while held: the wheel takes the new ones.</summary>
+        private void Rehold()
+        {
+            if (holding && Usb?.HeldState != null) Usb.HoldState(previewState, plugin.CarLimiterFor(plugin.DashCarKey));
+        }
+
+        private void ShowHold()
+        {
+            // ended elsewhere (a game started, a scenario was played): the button follows
+            if (holding && Usb?.HeldState == null) holding = false;
+            ((TextBlock)onWheel.Tag).Text = holding ? "Stop showing on the wheel" : "Show on the wheel";
+            onWheelNote.Text = holding ? $"The wheel is held in \"{CarStateTracker.Name(previewState)}\" and follows what you pick and edit here, until you stop it, leave this tab or start a game." : "";
+            onWheelNote.Visibility = holding ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BuildStateChips()
@@ -516,6 +548,7 @@ namespace User.FXProRpmSync
                     previewState = ss;
                     if (ss == CarState.Idle || ss == CarState.Menu || ss == CarState.EngineOff) lookState = ss;
                     BuildStateChips();
+                    Rehold(); ShowHold();
                     if (Mine != null) ShowEditor();
                 };
                 stateChips.Children.Add(chip);

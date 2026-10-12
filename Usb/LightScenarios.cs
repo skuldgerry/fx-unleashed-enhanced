@@ -19,6 +19,13 @@ namespace User.FXProRpmSync
         /// <summary>The car's rev lights for scenarios about them (null = the preset's own).</summary>
         internal Func<LightProfile, RpmLayout> MakeLayout;
         public LaunchTarget Launch;
+        /// <summary>
+        /// Not a script but one moment held until it's stopped (the Lights tab's "Show on the wheel"): the wheel stays
+        /// in this state, start-up and shutdown playing over and over, as the tab's own preview does.
+        /// </summary>
+        public CarState? Hold;
+        /// <summary>Hold: the pit limiter lights of the car being driven (null = the preset's).</summary>
+        internal LimiterLook HoldLimiter;
 
         internal LightScenario Seg(double seconds, string note, Action<DashValues, double> apply)
         {
@@ -30,6 +37,13 @@ namespace User.FXProRpmSync
         /// <summary>The values at `t` seconds (the last segment's end once it's over).</summary>
         public DashValues ValuesAt(double t, out string note)
         {
+            if (Hold is CarState held)
+            {
+                note = "held until you stop it, leave the Lights tab or start a game";
+                var h = LightScenarios.HoldValues(held, t);
+                h.Set("rpm", h.Rpm); h.Set("maxRpm", h.MaxRpm); h.Set("speed", h.SpeedKmh);
+                return h;
+            }
             double start = 0;
             var seg = Segments.Count > 0 ? Segments[Segments.Count - 1] : default;
             double u = 1;
@@ -69,7 +83,7 @@ namespace User.FXProRpmSync
         }
 
         public double Elapsed(double now) { if (double.IsNaN(t0)) t0 = now; return now - t0; }
-        public bool Finished(double now) => Elapsed(now) > Scenario.Seconds + 0.6;
+        public bool Finished(double now) => Scenario.Hold == null && Elapsed(now) > Scenario.Seconds + 0.6;
         public string NoteAt(double now) { Scenario.ValuesAt(Elapsed(now), out var n); return n; }
 
         /// <summary>The scenario's values now (also what the wheel's dash shows).</summary>
@@ -80,7 +94,8 @@ namespace User.FXProRpmSync
         {
             var v = Values(now);
             var state = tracker.Update(v, now);
-            var moment = LightMoment.Of(state, tracker.Progress(now));
+            var moment = Scenario.Hold is CarState held ? LightMoment.Of(held, LightScenarios.HoldProgress(held, Elapsed(now)), Scenario.HoldLimiter)
+                                                        : LightMoment.Of(state, tracker.Progress(now));
             moment.Extras = extras.Update(v, now, "scenario", Scenario.Launch);
             return engine.Render(profile, v, layout, now, reverseRev, moment);
         }
@@ -99,6 +114,29 @@ namespace User.FXProRpmSync
          .With("brakeBias", 56.0).With("absLevel", 6.0).With("tcLevel", 5.0).With("engineMap", 3.0).With("completedLaps", 3.0).With("lap", 4.0);
 
         private static DashValues With(this DashValues v, string key, object value) { v.Set(key, value); return v; }
+
+        /// <summary>One car state held on the wheel ("Show on the wheel"), with the car's own pit limiter lights if it has them.</summary>
+        public static LightScenario Held(CarState state, LimiterLook carLimiter = null) =>
+            new LightScenario { Id = "hold-" + state, Title = "On the wheel: " + CarStateTracker.Name(state), Expect = "", Hold = state, HoldLimiter = carLimiter };
+
+        /// <summary>What the car and game would be doing in a state that is previewed or held (`t`: seconds, for the lap while driving).</summary>
+        public static DashValues HoldValues(CarState state, double t)
+        {
+            if (state == CarState.Idle) return new DashValues();
+            var v = SimLap.Values(state == CarState.Menu || state == CarState.EngineOff ? 0 : t);
+            if (state == CarState.Menu || state == CarState.EngineOff) { v.Rpm = 0; v.AbsActive = v.TcActive = v.SpotterLeft = v.SpotterRight = false; v.InMenu = state == CarState.Menu; }
+            else if (state == CarState.PitLimiter) { v.Rpm = 3400; v.PitLimiter = true; v.AbsActive = v.TcActive = false; }
+            else if (state == CarState.Starting) v.Rpm = 900;
+            return v;
+        }
+
+        /// <summary>Start-up and shutdown in a previewed or held state: played, held at the end for a moment, again.</summary>
+        public static double HoldProgress(CarState state, double t)
+        {
+            if (state != CarState.Starting && state != CarState.Stopping) return 0;
+            double len = state == CarState.Starting ? CarStateTracker.StartSeconds : CarStateTracker.StopSeconds;
+            return Math.Min(1, t % (len + 1.2) / len);
+        }
 
         private static double Lerp(double a, double b, double u) => a + (b - a) * u;
         private static double Tri(double u, double lo, double hi) => lo + (hi - lo) * (u < 0.5 ? u * 2 : 2 - u * 2);

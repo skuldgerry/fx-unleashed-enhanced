@@ -539,6 +539,7 @@ namespace User.FXProRpmSync
         public void Publish(DashValues v)
         {
             NoteSpotter(v);
+            if (v != null && v.Running) Interlocked.Exchange(ref gameTicks, DateTime.UtcNow.Ticks);
             if (demoOn || Testing) return;
             Volatile.Write(ref latest, v);
             Interlocked.Exchange(ref latestTicks, DateTime.UtcNow.Ticks);
@@ -701,6 +702,34 @@ namespace User.FXProRpmSync
             demo = null;
             Wake();
             return true;
+        }
+
+        /// <summary>The car state held on the wheel now (HoldState), or null.</summary>
+        public CarState? HeldState => scenarioRun?.Scenario.Hold;
+
+        /// <summary>
+        /// Keeps the wheel in one car state with the player's preset as it is now (Lights tab "Show on the wheel"), so a
+        /// look can be judged on the wheel without a game. Called again after an edit, it shows the edit. Ends with
+        /// StopScenario, another scenario, or a game sending data (RunFrame).
+        /// </summary>
+        public bool HoldState(CarState state, LimiterLook carLimiter = null)
+        {
+            if (GameSending) return false;
+            StartHold(state, carLimiter);
+            return true;
+        }
+
+        private long gameTicks;
+        /// <summary>A game is sending data now. Unlike LiveFresh this stays true under a demo or a scenario, which replace the values the wheel shows.</summary>
+        public bool GameSending => DateTime.UtcNow.Ticks - Interlocked.Read(ref gameTicks) < TimeSpan.FromSeconds(2).Ticks;
+
+        private void StartHold(CarState state, LimiterLook carLimiter)
+        {
+            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter), S.ActiveLights, model);
+            demoDashId = null;
+            demoOn = true;
+            demo = null;
+            Wake();
         }
 
         public void StopScenario()
@@ -1359,7 +1388,8 @@ namespace User.FXProRpmSync
             DashValues v;
             bool previewDemo = previewDash != null && !LiveFresh;
             var run = scenarioRun;
-            if (run != null && run.Finished(now)) { scenarioRun = null; demoOn = false; run = null; }
+            // a held state has no end of its own: it gives way as soon as a game sends data
+            if (run != null && (run.Finished(now) || (run.Scenario.Hold != null && GameSending))) { scenarioRun = null; demoOn = false; run = null; }
             if (run != null)
             {
                 v = run.Values(now);
