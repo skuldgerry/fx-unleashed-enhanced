@@ -1058,9 +1058,9 @@ namespace User.FXProRpmSync
             row.Children.Add(up); row.Children.Add(down);
 
             var on = Theme.Switch(LightPresets.AlertName(a), a.Enabled, v => { a.Enabled = v; Changed(); });
-            on.Width = 190; on.Margin = new Thickness(4, 4, 0, 0);
+            on.Width = 184; on.Margin = new Thickness(4, 4, 0, 0);
             row.Children.Add(on);
-            row.Children.Add(new ColourField(a.Color, hex => { a.Color = hex; Changed(); }) { Margin = new Thickness(0, 0, 14, 0) });
+            row.Children.Add(new ColourField(a.Color, hex => { a.Color = hex; Changed(); }) { Margin = new Thickness(0, 0, 8, 0) });
             foreach (LedGroup g in model.AlertGroups)
             {
                 var gg = g;
@@ -1077,7 +1077,7 @@ namespace User.FXProRpmSync
                 row.Children.Add(chip);
             }
             // one button's own light, by its number, next to (or instead of) the groups
-            var buttons = new TextBox { Width = 52, Margin = new Thickness(2, 0, 0, 0), Text = string.Join(", ", a.Buttons ?? new List<int>()), VerticalAlignment = VerticalAlignment.Center };
+            var buttons = new TextBox { Width = 40, Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(0), Text = string.Join(", ", a.Buttons ?? new List<int>()), VerticalAlignment = VerticalAlignment.Center };
             Action showButtons = () =>
             {
                 var unmapped = (a.Buttons ?? new List<int>()).Where(n => S.ButtonLeds == null || !S.ButtonLeds.ContainsKey(n)).ToList();
@@ -1095,15 +1095,15 @@ namespace User.FXProRpmSync
                 showButtons();
             };
             showButtons();
-            row.Children.Add(new TextBlock { Text = "Button", Foreground = Theme.Text3, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 4, 0) });
+            row.Children.Add(new TextBlock { Text = "#", Foreground = Theme.Text3, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0), ToolTip = "A single button's light, by its number" });
             row.Children.Add(buttons);
-            var hz = new ComboBox { Width = 120, Margin = new Thickness(8, 0, 0, 0) };
+            var hz = new ComboBox { Width = 108, Margin = new Thickness(6, 0, 0, 0) };
             foreach (var (label, value) in new[] { ("Steady", 0.0), ("Pulse 1/s", 1.0), ("Blink 2/s", 2.0), ("Blink 4/s", 4.0), ("Flicker 8/s", 8.0), ("Flicker 12/s", 12.0) })
                 hz.Items.Add(new ComboBoxItem { Content = label, Tag = value });
             hz.SelectedItem = hz.Items.Cast<ComboBoxItem>().OrderBy(i => Math.Abs((double)i.Tag - a.BlinkHz)).First();
             hz.SelectionChanged += (s, e) => { if (hz.SelectedItem is ComboBoxItem i) { a.BlinkHz = (double)i.Tag; Changed(); } };
             row.Children.Add(hz);
-            var style = new ComboBox { Width = 110, Margin = new Thickness(6, 0, 0, 0), ToolTip = "How it shows: all lights blinking, fading in and out, a band running along them, or every other light (chequered)" };
+            var style = new ComboBox { Width = 100, Margin = new Thickness(6, 0, 0, 0), ToolTip = "How it shows: all lights blinking, fading in and out, a band running along them, or every other light (chequered)" };
             foreach (AlertStyle st in Enum.GetValues(typeof(AlertStyle))) style.Items.Add(new ComboBoxItem { Content = LightPresets.StyleName(st), Tag = st });
             style.SelectedItem = style.Items.Cast<ComboBoxItem>().First(i => (AlertStyle)i.Tag == a.Style);
             style.SelectionChanged += (s, e) => { if (style.SelectedItem is ComboBoxItem i) { a.Style = (AlertStyle)i.Tag; Changed(); } };
