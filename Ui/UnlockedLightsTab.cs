@@ -239,6 +239,9 @@ namespace User.FXProRpmSync
             // ----- Editor (your own) -----
             editor = new StackPanel();
             editor.Children.Add(Theme.Eyebrow("Your lights", Theme.Red));
+            editor.Children.Add(Theme.Note("What the lights do while you drive. The other moments each have their own part further down:", new Thickness(0, 0, 0, 6)));
+            sectionIndex = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+            editor.Children.Add(sectionIndex);
             editor.Children.Add(Theme.Note("Pick a part of the wheel: click it on the wheel above, or here."));
             groupChips = new WrapPanel { Margin = new Thickness(0, 0, 0, 14) };
             editor.Children.Add(groupChips);
@@ -740,15 +743,31 @@ namespace User.FXProRpmSync
             patternStrips.Clear();
             var l = p.Group(group);
             var effect = new ComboBox { Width = 240 };
-            // shift lights only on the rev bar, setting levels only on the encoders
+            // shift lights only on the rev bar; the encoders' setting levels are not one more decorative effect but a
+            // switch of their own (below), the only thing here that follows the car's settings
+            bool canLevels = group == LedGroup.Encoders && (model.HasLevels || model.GaugeRings);
             var effects = Enum.GetValues(typeof(LightEffect)).Cast<LightEffect>()
-                .Where(x => (x != LightEffect.Rpm || group == LedGroup.Rev) && (x != LightEffect.Levels || (group == LedGroup.Encoders && (model.HasLevels || model.GaugeRings))));
+                .Where(x => (x != LightEffect.Rpm || group == LedGroup.Rev) && x != LightEffect.Levels);
             foreach (var x in effects) effect.Items.Add(new ComboBoxItem { Content = EffectName(x), Tag = x });
-            effect.SelectedItem = effect.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (LightEffect)i.Tag == l.Effect) ?? effect.Items[0];
+            effect.SelectedItem = effect.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (LightEffect)i.Tag == (l.Effect == LightEffect.Levels ? effectBeforeLevels : l.Effect)) ?? effect.Items[0];
+            var effectRow = Theme.Field("Effect", effect);
+            var drivingNote = new TextBlock { Foreground = Theme.Amber, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(170, -6, 0, 12), MaxWidth = 590, HorizontalAlignment = HorizontalAlignment.Left };
             var details = new StackPanel();
+            // what "While driving" (further down) does to this part's effect, said where the effect is picked
+            showDrivingNote = () =>
+            {
+                bool side = group == LedGroup.SideLeft || group == LedGroup.SideRight;
+                bool animated = l.Effect != LightEffect.Off && l.Effect != LightEffect.Solid && l.Effect != LightEffect.Rpm && l.Effect != LightEffect.Levels;
+                drivingNote.Text = side && p.SidesDarkWhileDriving && l.Effect != LightEffect.Off ? "Dark while you drive: these only light for alerts (\"Side lights dark\" under While driving, below). The effect shows when you're not driving."
+                                 : animated && p.StillWhileDriving ? "Held still while you drive: one frame of it, not the animation (\"Hold still\" under While driving, below). It moves when you're not driving."
+                                 : "";
+                drivingNote.Visibility = drivingNote.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+            };
             Action fill = () =>
             {
                 details.Children.Clear();
+                effectRow.Visibility = l.Effect == LightEffect.Levels ? Visibility.Collapsed : Visibility.Visible;
+                showDrivingNote();
                 if (l.Effect == LightEffect.Rpm) { BuildRevEditor(details, p.Rev); return; }
                 if (l.Effect == LightEffect.Levels) { BuildLevelsEditor(details, l); return; }
                 if (l.Effect == LightEffect.Off) return;
@@ -761,16 +780,30 @@ namespace User.FXProRpmSync
             effect.SelectionChanged += (s, e) => { if (effect.SelectedItem is ComboBoxItem i) { l.Effect = (LightEffect)i.Tag; Changed(); fill(); } };
             groupEditor.Children.Add(Theme.Title(GroupName(group), 18));
             groupEditor.Children.Add(new Border { Height = 12 });
-            groupEditor.Children.Add(Theme.Field("Effect", effect));
+            if (canLevels)
+            {
+                var levels = Theme.Switch(model.GaugeRings ? "Use the encoder rings as gauges" : "Show each setting's level", l.Effect == LightEffect.Levels, v =>
+                {
+                    if (loading) return;
+                    if (v) { effectBeforeLevels = l.Effect; l.Effect = LightEffect.Levels; }
+                    else l.Effect = ((effect.SelectedItem as ComboBoxItem)?.Tag as LightEffect?) ?? LightEffect.Solid;
+                    Changed(); fill();
+                }, model.GaugeRings ? "Each ring shows a value of the car (fuel, tyre wear, a setting, any SimHub value) instead of an effect. Off: the effect below."
+                                    : "Each encoder's light shows its own setting (ABS, TC, brake bias, DIFF, engine map) as a colour from low to high, and can blink when you change it. Instead of an effect: off, the effect below shows.");
+                groupEditor.Children.Add(model.HasLevels ? WithShowMe(levels, "levels") : levels);
+            }
+            groupEditor.Children.Add(effectRow);
+            groupEditor.Children.Add(drivingNote);
             groupEditor.Children.Add(details);
             fill();
 
             // Global brightness + alerts
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 10, 0, 16) });
             groupEditor.Children.Add(Theme.Field("All lights", Theme.SliderField(1, 90, p.MaxBrightness, 1, v => $"{v:0} / 90", v => { if (!loading) { p.MaxBrightness = (int)v; Changed(); } })));
+            sections.Clear();
             BuildStateEditor(p);
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 10, 0, 16) });
-            groupEditor.Children.Add(Theme.Eyebrow("Alerts"));
+            groupEditor.Children.Add(Section("Alerts"));
             groupEditor.Children.Add(Theme.Note("While one is on, its lights show it over everything else. Higher in the list wins a light: use the arrows to reorder."));
             if (p.AddMissingAlerts()) { saveTimer.Stop(); saveTimer.Start(); } // alerts added since these lights were saved
             alertList = new StackPanel();
@@ -784,10 +817,70 @@ namespace User.FXProRpmSync
             add.Margin = new Thickness(0, 6, 0, 0);
             add.HorizontalAlignment = HorizontalAlignment.Left;
             groupEditor.Children.Add(add);
+            BuildSectionIndex();
             loading = false;
         }
 
         private StackPanel alertList;
+        private WrapPanel sectionIndex;
+        private readonly List<(string Title, FrameworkElement Heading)> sections = new List<(string, FrameworkElement)>();
+        /// <summary>The effect the encoders go back to when their setting levels are switched off.</summary>
+        private LightEffect effectBeforeLevels = LightEffect.Solid;
+        /// <summary>Updates the note under the effect that says what "While driving" does to it.</summary>
+        private Action showDrivingNote = () => { };
+
+        /// <summary>A heading of the editor that the index at its top links to.</summary>
+        private TextBlock Section(string title)
+        {
+            var heading = Theme.Eyebrow(title);
+            sections.Add((title, heading));
+            return heading;
+        }
+
+        /// <summary>The editor's parts as links under "Your lights": everything past the driving effect is a long way down.</summary>
+        private void BuildSectionIndex()
+        {
+            sectionIndex.Children.Clear();
+            foreach (var (title, heading) in sections)
+            {
+                var link = new TextBlock { Text = title, Foreground = Theme.Text2, FontSize = 12.5, Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 18, 4), TextDecorations = TextDecorations.Underline };
+                link.MouseLeftButtonUp += (s, e) => heading.BringIntoView();
+                sectionIndex.Children.Add(link);
+            }
+        }
+
+        /// <summary>
+        /// A switch with a "Show me" button beside it: plays the scenario that shows it on the wheel (LightScenarios), whose
+        /// own description of what to look for is the tooltip of both.
+        /// </summary>
+        private FrameworkElement WithShowMe(CheckBox sw, string scenarioId)
+        {
+            var sc = LightScenarios.Find(scenarioId);
+            if (sc == null) return sw;
+            sw.ToolTip = "On the wheel: " + sc.Expect;
+            var show = ShowMeButton(sc);
+            var row = new DockPanel { Margin = sw.Margin, LastChildFill = true };
+            sw.Margin = new Thickness(0);
+            DockPanel.SetDock(show, Dock.Right);
+            row.Children.Add(show);
+            row.Children.Add(sw);
+            return row;
+        }
+
+        private Button ShowMeButton(LightScenario sc)
+        {
+            var id = sc.Id;
+            var show = Theme.Btn("Show me", () =>
+            {
+                if (Usb?.Active == true) Usb.PlayScenario(id);
+                else MessageBox.Show(Window.GetWindow(this), "The wheel isn't connected in USB mode right now (the Wheel tab says why), so there's nothing to show it on.", "FX Unleashed", MessageBoxButton.OK, MessageBoxImage.Information);
+                RefreshState();
+            });
+            show.ToolTip = $"Plays \"{sc.Title}\" on the wheel ({sc.Seconds:0} s, no game needed), switched on in a copy of these lights for the test.\n\n{sc.Expect}";
+            show.VerticalAlignment = VerticalAlignment.Top;
+            show.Margin = new Thickness(12, 0, 0, 0);
+            return show;
+        }
 
         /// <summary>
         /// Your own lights per car state: how they look with no game, in a menu, with the engine off; the engine start and
@@ -796,8 +889,13 @@ namespace User.FXProRpmSync
         private void BuildStateEditor(LightProfile p)
         {
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 10, 0, 16) });
-            groupEditor.Children.Add(Theme.Eyebrow("When the car isn't driving"));
-            groupEditor.Children.Add(Theme.Note("Pick the moment; the preview above plays it."));
+            groupEditor.Children.Add(Section("When the car isn't driving"));
+            var statesNote = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+            var statesShow = ShowMeButton(LightScenarios.Find("car-states"));
+            DockPanel.SetDock(statesShow, Dock.Right);
+            statesNote.Children.Add(statesShow);
+            statesNote.Children.Add(Theme.Note("No game running, in a menu, engine off: each can have its own brightness and effect. Pick the moment; the preview above plays it.", new Thickness(0)));
+            groupEditor.Children.Add(statesNote);
             var chips = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
             foreach (var st in new[] { CarState.Idle, CarState.Menu, CarState.EngineOff })
             {
@@ -842,7 +940,7 @@ namespace User.FXProRpmSync
             groupEditor.Children.Add(rev);
 
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 6, 0, 16) });
-            groupEditor.Children.Add(Theme.Eyebrow("Engine start and stop"));
+            groupEditor.Children.Add(Section("Engine start and stop"));
             var start = new ComboBox { Width = 240 };
             foreach (var (st, label) in new[] { (StartupStyle.None, "Nothing"), (StartupStyle.Sweep, "A wave from the middle"), (StartupStyle.SelfTest, "Rev bar self-test"), (StartupStyle.Ignite, "Double flash") })
                 start.Items.Add(new ComboBoxItem { Content = label, Tag = st });
@@ -857,7 +955,7 @@ namespace User.FXProRpmSync
             groupEditor.Children.Add(Theme.Field("Engine stop", stop));
 
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 6, 0, 16) });
-            groupEditor.Children.Add(Theme.Eyebrow("Pit limiter"));
+            groupEditor.Children.Add(Section("Pit limiter"));
             groupEditor.Children.Add(Theme.Note("For cars without their own (set in the card for this car above)."));
             if (p.Limiter == null) p.Limiter = new LimiterLook();
             groupEditor.Children.Add(LimiterEditor(p.Limiter, () => { if (!loading) { Changed(); previewState = CarState.PitLimiter; BuildStateChips(); } }));
@@ -866,32 +964,33 @@ namespace User.FXProRpmSync
             groupEditor.Children.Add(Theme.Field("Rev bar tint", Theme.SliderField(0, 30, p.RevTint, 1, v => v < 0.5 ? "off" : $"{v:0}% glow in the theme colour",
                 v => { if (!loading) { p.RevTint = (int)v; Changed(); } })));
 
-            groupEditor.Children.Add(Theme.Eyebrow("While driving"));
-            var still = Theme.Switch("Hold still", p.StillWhileDriving, v => { if (!loading) { p.StillWhileDriving = v; Changed(); previewState = CarState.Driving; BuildStateChips(); } },
+            groupEditor.Children.Add(Section("While driving"));
+            groupEditor.Children.Add(Theme.Note("These two change what the effects picked above do on track, and both start switched on."));
+            var still = Theme.Switch("Hold still", p.StillWhileDriving, v => { if (!loading) { p.StillWhileDriving = v; Changed(); previewState = CarState.Driving; BuildStateChips(); showDrivingNote(); } },
                 "On: the buttons and encoders show one still frame of their effect instead of animating. Off: they keep moving.");
             still.Margin = new Thickness(170, 0, 0, 10);
-            groupEditor.Children.Add(still);
-            var sides = Theme.Switch("Side lights dark", p.SidesDarkWhileDriving, v => { if (!loading) { p.SidesDarkWhileDriving = v; Changed(); previewState = CarState.Driving; BuildStateChips(); } },
+            groupEditor.Children.Add(WithShowMe(still, "driving-still"));
+            var sides = Theme.Switch("Side lights dark", p.SidesDarkWhileDriving, v => { if (!loading) { p.SidesDarkWhileDriving = v; Changed(); previewState = CarState.Driving; BuildStateChips(); showDrivingNote(); } },
                 "On: the lights beside the rev bar stay off while you drive and only light for alerts (spotter, flags).");
             sides.Margin = new Thickness(170, 0, 0, 10);
-            groupEditor.Children.Add(sides);
+            groupEditor.Children.Add(WithShowMe(sides, "driving-still"));
 
-            groupEditor.Children.Add(Theme.Eyebrow("Rev bar extras"));
+            groupEditor.Children.Add(Section("Rev bar extras"));
             groupEditor.Children.Add(Theme.Note("The rev bar shows these instead of the shift lights while they last; the shift lights win again near the shift point."));
             if (p.Extras == null) p.Extras = new RevExtrasOptions();
-            void Extra(string label, string hint, bool value, Action<bool> set)
+            void Extra(string label, string hint, bool value, Action<bool> set, string scenario)
             {
                 var sw = Theme.Switch(label, value, v => { if (!loading) { set(v); Changed(); } }, hint);
                 sw.Margin = new Thickness(170, 0, 0, 10);
-                groupEditor.Children.Add(sw);
+                groupEditor.Children.Add(WithShowMe(sw, scenario));
             }
             Extra("Pit speed bar", "In the pit lane, moving: a pointer for your speed against the limit (the middle is the limit, red over it). The limit comes from the game, or is learned from the pit limiter.",
-                p.Extras.PitSpeed, v => p.Extras.PitSpeed = v);
-            Extra("Lift and coast (LMU)", "The bar fills from both ends with the lift-and-coast progress.", p.Extras.LiftCoast, v => p.Extras.LiftCoast = v);
-            Extra("Fuel while refuelling", "Stopped with fuel going in, the bar shows the tank filling.", p.Extras.Refuel, v => p.Extras.Refuel = v);
-            Extra("Brake bias change", "After you change the bias, a pointer shows how far it moved from where it started.", p.Extras.BrakeBias, v => p.Extras.BrakeBias = v);
+                p.Extras.PitSpeed, v => p.Extras.PitSpeed = v, "pit-speed");
+            Extra("Lift and coast (LMU)", "The bar fills from both ends with the lift-and-coast progress.", p.Extras.LiftCoast, v => p.Extras.LiftCoast = v, "lift-coast");
+            Extra("Fuel while refuelling", "Stopped with fuel going in, the bar shows the tank filling.", p.Extras.Refuel, v => p.Extras.Refuel = v, "refuel");
+            Extra("Brake bias change", "After you change the bias, a pointer shows how far it moved from where it started.", p.Extras.BrakeBias, v => p.Extras.BrakeBias = v, "brake-bias");
             Extra("Launch aid", "Standing start in first gear: a pointer for revs (or throttle, or clutch) against this car's target, set in the launch card above. Amber below it, green on it, red above.",
-                p.Extras.Launch, v => p.Extras.Launch = v);
+                p.Extras.Launch, v => p.Extras.Launch = v, "launch");
         }
 
         private void BuildAlerts(LightProfile p)
@@ -1101,6 +1200,11 @@ namespace User.FXProRpmSync
         {
             details.Children.Add(Theme.Switch("Use the car's real rev lights when known", rev.UseCarData, v => { rev.UseCarData = v; Changed(); },
                 "From the rev light database and your car tuning. Cars without data, and every car when this is off, use the pattern below."));
+            // the two actions that tune a car's lights from the wheel were only named in a note on the Car tuning tab
+            details.Children.Add(Theme.Note($"Lights too early or too late in a car? Two wheel buttons move them while you drive, {FXProRpmSyncPlugin.NudgeStepRpm} rpm a press, saved for that car (Car tuning shows it and undoes it)."));
+            details.Children.Add(Theme.Binding("Lights earlier", "CurrentCarLightsEarlier"));
+            details.Children.Add(Theme.Binding("Lights later", "CurrentCarLightsLater"));
+            details.Children.Add(new Border { Height = 8 });
 
             // the pattern, each tile a live preview in this preset's colours
             patternStrips.Clear();
