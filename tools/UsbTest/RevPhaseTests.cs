@@ -15,6 +15,12 @@ static class RevPhaseTests
     static bool Is(LedColor c, int r, int g, int b) => c.R == r && c.G == g && c.B == b;
     static bool Dark(LedColor c) => c.R + c.G + c.B == 0;
 
+    sealed class SameLed : IEqualityComparer<LedColor>
+    {
+        public bool Equals(LedColor a, LedColor b) => a.R == b.R && a.G == b.G && a.B == b.B && a.Brightness == b.Brightness;
+        public int GetHashCode(LedColor c) => c.R << 16 | c.G << 8 | c.B;
+    }
+
     public static void Run()
     {
         // a car with a steady red flash at 7000, per gear: 4th shifts at 7200
@@ -67,7 +73,12 @@ static class RevPhaseTests
         // the cars whose stages were measured have them without any adjustment; an adjustment keeps, replaces or removes them
         var known = KnownRevPhases.For("iracing | BMWM4GT3");
         Check("phases: the BMW M4 GT3's two dots are known; an unmeasured car has none", known != null && known.Count == 1 && known[0].Look == PhaseLook.Centre && known[0].Count == 2
-              && KnownRevPhases.For("IRacing | mclaren720sgt3") == null && KnownRevPhases.For(null) == null && KnownRevPhases.For("IRacing | bmwm4gt3")[0] != known[0]);
+              && KnownRevPhases.For("IRacing | chevyvettez06rgt3") == null && KnownRevPhases.For(null) == null && KnownRevPhases.For("IRacing | bmwm4gt3")[0] != known[0]);
+        var mclKnown = car.Clone(); mclKnown.After = KnownRevPhases.For("IRacing | mclaren720sgt3");
+        var atShift = at(mclKnown, 7000, "3", 0);
+        Check("phases: the McLaren 720S GT3 is blue and red at once at its own shift point, in every gear, nothing changed below it",
+              mclKnown.After?.Count == 1 && Enumerable.Range(0, 15).All(i => i % 2 == 0 ? Is(atShift[i], 0, 0, 255) : Is(atShift[i], 255, 0, 0))
+              && at(mclKnown, 7100, "4", 0).SequenceEqual(at(car, 7100, "4", 0), new SameLed()) && at(mclKnown, 7200, "4", 0).Any(c => Is(c, 0, 0, 255)));
         var withKnown = car.Clone(); withKnown.After = known;
         Check("phases: an offset adjustment keeps the car's own stages", new CarOverride { OffsetRpm = 50 }.Apply(withKnown, null).After?.Count == 1);
         Check("phases: so does a pattern for that car", new CarOverride { Kind = OverrideKind.Pattern, Style = new FallbackStyle { Pattern = PatternKind.LeftToRight } }.Apply(withKnown, null).After?.Count == 1);

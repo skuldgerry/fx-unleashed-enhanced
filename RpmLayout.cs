@@ -347,8 +347,8 @@ namespace User.FXProRpmSync
 
     /// <summary>
     /// The lights past the shift point of the cars where they were measured in the game, by car key ("Game | CarId").
-    /// Only what was measured: a stage read from a manual, without its rpm or its rhythm, is not here (the Car tuning
-    /// editor has those as starting points to set by hand). A car's adjustment replaces or removes them.
+    /// Only what is known: a stage that needs an rpm nobody measured is not here (the Corvette Z06 GT3.R's blue near the
+    /// limiter; the Car tuning editor has it as a starting point to set by hand). A car's adjustment replaces or removes them.
     /// </summary>
     public static class KnownRevPhases
     {
@@ -357,6 +357,10 @@ namespace User.FXProRpmSync
             // BMW M4 GT3 (iRacing), measured 2026-10-12 over a lap of the Nordschleife (8460 frames with rpm and gear): all red
             // from 6550-6675 by gear, then from about 6900-7000 the bar goes out but for two white dots in the middle
             ["IRacing | bmwm4gt3"] = new[] { new RevPhase { AboveShiftRpm = 350, Look = PhaseLook.Centre, Count = 2, Color1 = "#FFFFFF" } },
+            // McLaren 720S GT3 (iRacing): the shift point in the light data is right; what the data can't say is that the bar
+            // is blue and red at once there instead of all blue (iRacing's manual for the car, page 10). So no rpm of its own:
+            // it takes the flash's place. Steady here: whether the two colours trade places, and how fast, is not measured yet.
+            ["IRacing | mclaren720sgt3"] = new[] { new RevPhase { AboveShiftRpm = 0, Look = PhaseLook.Alternate, Color1 = "#0000FF", Color2 = "#FF0000" } },
         };
 
         /// <summary>A fresh copy of the car's stages, or null when none are known.</summary>
