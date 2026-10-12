@@ -72,13 +72,13 @@ namespace User.FXProRpmSync
         private readonly RpmLayout layout;
         private double t0 = double.NaN;
 
-        public ScenarioRun(LightScenario scenario, LightProfile baseProfile, WheelModel model)
+        public ScenarioRun(LightScenario scenario, LightProfile baseProfile, WheelModel model, Dictionary<int, int> buttonLeds = null)
         {
             Scenario = scenario;
             profile = (baseProfile ?? LightPresets.For(model)[0]).Clone();
             scenario.Prepare(profile);
             layout = scenario.MakeLayout?.Invoke(profile);
-            engine = new LightEngine(model);
+            engine = new LightEngine(model) { ButtonLeds = buttonLeds };
             extras = new RevExtrasState(() => pitSpeeds, d => { foreach (var kv in d) pitSpeeds[kv.Key] = kv.Value; });
         }
 

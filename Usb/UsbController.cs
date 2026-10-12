@@ -696,7 +696,7 @@ namespace User.FXProRpmSync
         {
             var sc = LightScenarios.Find(id);
             if (sc == null) return false;
-            scenarioRun = new ScenarioRun(sc, S.ActiveLights, model);
+            scenarioRun = new ScenarioRun(sc, S.ActiveLights, model, S.ButtonLeds);
             demoDashId = null;
             demoOn = true;
             demo = null;
@@ -725,7 +725,7 @@ namespace User.FXProRpmSync
 
         private void StartHold(CarState state, LimiterLook carLimiter)
         {
-            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter), S.ActiveLights, model);
+            scenarioRun = new ScenarioRun(LightScenarios.Held(state, carLimiter), S.ActiveLights, model, S.ButtonLeds);
             demoDashId = null;
             demoOn = true;
             demo = null;
@@ -1860,6 +1860,7 @@ namespace User.FXProRpmSync
                         extras.PitSpeedLearned += () => plugin.SaveSettings();
                     }
                     moment.Extras = extras.Update(v, now, plugin.DashCarKey, plugin.LaunchFor(plugin.DashCarKey));
+                    engine.ButtonLeds = s.ButtonLeds;
                     frame = engine.Render(lights, v, source && !testing && !demoOn ? plugin.CurrentLightsLayout : null, now, reverseRev, moment);
                     LightsState += " · " + CarStateTracker.Name(moment.State).ToLowerInvariant();
                 }

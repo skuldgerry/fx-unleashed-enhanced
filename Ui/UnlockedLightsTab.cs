@@ -472,6 +472,7 @@ namespace User.FXProRpmSync
             double t = clock.Elapsed.TotalSeconds;
             var live = previewState == CarState.Driving && carLimiterDraft == null && Usb?.Active == true && S.LightsEnabled ? Usb.LastFrame : null;
             var (pv, moment) = PreviewMoment(t);
+            bigEngine.ButtonLeds = S.ButtonLeds;
             big.Show(live ?? bigEngine.Render(S.ActiveLights, pv, null, t, false, moment));
             // the pattern previews: a sweep up to the shift point in the preset's colours
             bool blinkOn = (int)(t * 8) % 2 == 0;
@@ -1075,6 +1076,27 @@ namespace User.FXProRpmSync
                 chip.Unchecked += (s, e) => { a.Groups.Remove(gg); paint(); Changed(); };
                 row.Children.Add(chip);
             }
+            // one button's own light, by its number, next to (or instead of) the groups
+            var buttons = new TextBox { Width = 52, Margin = new Thickness(2, 0, 0, 0), Text = string.Join(", ", a.Buttons ?? new List<int>()), VerticalAlignment = VerticalAlignment.Center };
+            Action showButtons = () =>
+            {
+                var unmapped = (a.Buttons ?? new List<int>()).Where(n => S.ButtonLeds == null || !S.ButtonLeds.ContainsKey(n)).ToList();
+                buttons.BorderBrush = unmapped.Count > 0 ? Theme.Amber : Theme.Line2;
+                buttons.ToolTip = "Light a single button too: its number (several with commas), the number SimHub shows for it when you press it. Empty = none.\n" +
+                                  "Deselect the groups to light only that button." +
+                                  (unmapped.Count > 0 ? $"\n\nButton {string.Join(", ", unmapped)} has no light mapped yet, so nothing lights: use \"Map the buttons\" in the Button lights card below." : "");
+            };
+            buttons.LostFocus += (s, e) =>
+            {
+                var typed = buttons.Text.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                   .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n >= 1 && n <= 40).Distinct().ToList();
+                buttons.Text = string.Join(", ", typed);
+                if (!typed.SequenceEqual(a.Buttons ?? new List<int>())) { a.Buttons = typed; Changed(); }
+                showButtons();
+            };
+            showButtons();
+            row.Children.Add(new TextBlock { Text = "Button", Foreground = Theme.Text3, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 4, 0) });
+            row.Children.Add(buttons);
             var hz = new ComboBox { Width = 120, Margin = new Thickness(8, 0, 0, 0) };
             foreach (var (label, value) in new[] { ("Steady", 0.0), ("Pulse 1/s", 1.0), ("Blink 2/s", 2.0), ("Blink 4/s", 4.0), ("Flicker 8/s", 8.0), ("Flicker 12/s", 12.0) })
                 hz.Items.Add(new ComboBoxItem { Content = label, Tag = value });
@@ -1114,6 +1136,14 @@ namespace User.FXProRpmSync
                 cond.LostFocus += (s, e) => { var c = cond.Text.Trim(); if (c != (a.Condition ?? "")) { a.Condition = c; Changed(); showHint(); } };
                 custom.Children.Add(new TextBlock { Text = "On while", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(cond);
+                var hold = new ComboBox { Width = 130, ToolTip = "For a value that is only true for an instant (iRacing's headlight flash, dcHeadlightFlash, is true for about 70 ms a press): " +
+                                                                 "the alert stays on this long after it was last true. Use the property itself, not a formula: formulas are read 10 times a second and can miss it." };
+                foreach (var (label, value) in new[] { ("Only while true", 0.0), ("0.5 s more", 0.5), ("1 s more", 1.0), ("1.5 s more", 1.5), ("2 s more", 2.0), ("2.5 s more", 2.5), ("3 s more", 3.0), ("5 s more", 5.0) })
+                    hold.Items.Add(new ComboBoxItem { Content = label, Tag = value });
+                hold.SelectedItem = hold.Items.Cast<ComboBoxItem>().OrderBy(i => Math.Abs((double)i.Tag - a.HoldSeconds)).First();
+                hold.SelectionChanged += (s, e) => { if (hold.SelectedItem is ComboBoxItem i) { a.HoldSeconds = (double)i.Tag; Changed(); } };
+                custom.Children.Add(new TextBlock { Text = "Stays on", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
+                custom.Children.Add(hold);
                 outer.Children.Add(custom);
                 showHint();
                 outer.Children.Add(hint);

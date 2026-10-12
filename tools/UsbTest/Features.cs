@@ -193,6 +193,39 @@ static class FeatureTests
         custom.Enabled = false;
         Check("custom: disabled isn't read", !new List<string>(p.Bindings()).Contains("ncalc:[CarDamagesMax] > 5"));
 
+        // an alert on one button's own light, and one that stays on after a pulse (iRacing's headlight flash: ~70 ms a press)
+        const string flasher = "prop:DataCorePlugin.GameRawData.Telemetry.dcHeadlightFlash";
+        var one = new AlertRule { Trigger = AlertTrigger.Custom, Condition = flasher.Substring(5), Color = "#0040FF", BlinkHz = 0, Buttons = { 4 }, HoldSeconds = 2.5 };
+        p.Alerts.Insert(0, one);
+        Func<double, LedColor[]> frameAt = t => engine.Render(p, v, null, t, false);
+        Func<LedColor, bool> blue = c => c.R == 0 && c.G == 0x40 && c.B == 0xFF;
+        var quiet = frameAt(100);
+        v.Set(flasher, true);
+        Check("button alert: nothing lights while the button isn't mapped", frameAt(100.03).Zip(quiet, (a, b) => a.R == b.R && a.G == b.G && a.B == b.B).All(x => x));
+        v.Set(flasher, false);
+        engine.ButtonLeds = new Dictionary<int, int> { [4] = 2, [9] = 500 };
+        Check("button alert: off before the pulse", !frameAt(103).Any(blue));
+        v.Set(flasher, true);
+        var pulse = frameAt(110);
+        Check("button alert: only that button's light", blue(pulse[2]) && pulse.Count(blue) == 1 && Enumerable.Range(0, pulse.Length).Where(i => i != 2).All(i => pulse[i].R == quiet[i].R && pulse[i].G == quiet[i].G && pulse[i].B == quiet[i].B));
+        v.Set(flasher, false);
+        Check("button alert: stays on after the pulse for its hold time", blue(frameAt(110.07)[2]) && blue(frameAt(112.4)[2]));
+        Check("button alert: then goes off", !blue(frameAt(112.6)[2]) && !blue(frameAt(120)[2]));
+        v.Set(flasher, true); frameAt(130); v.Set(flasher, false); frameAt(131);
+        v.Set(flasher, true); frameAt(132); v.Set(flasher, false);
+        Check("button alert: a new pulse starts the time again", blue(frameAt(134.4)[2]) && !blue(frameAt(134.6)[2]));
+        one.Buttons.Add(9); one.Groups.Add(LedGroup.SideLeft);
+        v.Set(flasher, true);
+        Check("button alert: a light the wheel doesn't have is left out; groups and buttons add up", blue(frameAt(140)[2]) && blue(frameAt(140)[17]) && frameAt(140).Count(blue) == 4);
+        v.Set(flasher, false);
+        one.HoldSeconds = 0;
+        Check("no hold time: only while true, as before", !blue(frameAt(140.05)[2]));
+        var saved = Newtonsoft.Json.JsonConvert.DeserializeObject<AlertRule>(Newtonsoft.Json.JsonConvert.SerializeObject(new AlertRule { Buttons = { 4, 7 }, HoldSeconds = 2.5 }));
+        var older = Newtonsoft.Json.JsonConvert.DeserializeObject<AlertRule>("{\"Trigger\":\"Custom\",\"Groups\":[\"Encoders\"]}");
+        Check("button alert: saved and read back; alerts saved before it load with none", saved.Buttons.SequenceEqual(new[] { 4, 7 }) && saved.HoldSeconds == 2.5 && saved.Clone().Buttons.Count == 2
+              && older != null && older.Buttons.Count == 0 && older.HoldSeconds == 0);
+        p.Alerts.Remove(one);
+
         // new triggers
         v.Rpm = 7950;
         Check("rev limiter", LightEngine.Active(AlertTrigger.RevLimiter, v) && !LightEngine.Active(AlertTrigger.RevLimiter, new DashValues { Running = true, MaxRpm = 8000, Rpm = 7700 }));
