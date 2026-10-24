@@ -85,8 +85,9 @@ namespace User.FXProRpmSync
             var name = new TextBlock { FontFamily = Theme.Display, FontSize = 26, FontWeight = FontWeights.Bold };
             name.Inlines.Add(new System.Windows.Documents.Run("FX") { Foreground = Theme.Red });
             name.Inlines.Add(new System.Windows.Documents.Run(" UNLEASHED") { Foreground = Theme.Text, FontWeight = FontWeights.Light });
+            name.Inlines.Add(new System.Windows.Documents.Run(" ENHANCED") { Foreground = Theme.Red, FontWeight = FontWeights.Light, FontSize = 18 });
             titles.Children.Add(name);
-            titles.Children.Add(new TextBlock { Text = $"Enhanced edition  ·  custom dashes and lights for the Simagic FX Pro  ·  v{Updater.CurrentVersion}", Foreground = Theme.Text3, FontSize = 12 });
+            titles.Children.Add(new TextBlock { Text = $"Custom dashes and lights for the Simagic FX Pro  ·  v{Updater.CurrentVersion}", Foreground = Theme.Text3, FontSize = 12 });
             header.Children.Add(titles);
             page.Children.Add(header);
             page.Children.Add(feedProblem = FeedProblemBanner(out feedProblemTitle, out feedProblemAction, out feedProblemDetail));
