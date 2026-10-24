@@ -1,9 +1,9 @@
 <h1 align="center">FX Unleashed Enhanced</h1>
 
 <p align="center">
-  An enhanced edition of <a href="https://github.com/fxunleashed/fx-unleashed">FX Unleashed</a>, the free SimHub plugin
-  for the Simagic FX Pro, GT Neo and FX: more ways to see your lights on the wheel while you set them up, alerts on a single
-  button, and a backup of your settings.
+  An enhanced edition of <a href="https://github.com/fxunleashed/fx-unleashed"><b>FX Unleashed</b></a>, the free SimHub
+  plugin for the Simagic FX Pro, GT Neo and FX: more ways to see your lights on the wheel while you set them up, alerts on
+  single buttons, measured shift lights for some iRacing cars, and a backup of your settings.
 </p>
 
 > **An independent community project.** FX Unleashed Enhanced is a modified version of FX Unleashed by ziadkadry99. It
@@ -11,10 +11,23 @@
 > Simagic. Simagic, FX Pro and SimPro Manager are trademarks of their owners, used only to say which hardware this works
 > with. The software is provided "as is", without warranty of any kind. Use it at your own risk.
 
-Everything FX Unleashed does, this edition does too: it follows each FX Unleashed release (currently **0.7.6**), with the
-additions below on top. For setup, the custom firmware, dashes, the library and everything else, the original
-documentation applies: **[README](../README.md)**, **[setup guide](../docs/setup.md)** and
-**[fxunleashed.com](https://fxunleashed.com)**. The full list of changes is in [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
+## Built on FX Unleashed
+
+All the real work behind this plugin is **[FX Unleashed](https://github.com/fxunleashed/fx-unleashed)** by
+**ziadkadry99** and its contributors: the plugin itself, Unleashed mode and its custom firmware, the dash format and
+designer, the library, the lights engine and everything else. Its website is **[fxunleashed.com](https://fxunleashed.com)**.
+This edition follows each FX Unleashed release (currently **0.7.6**) and adds the changes below on top; if you don't need
+them, use the original.
+
+For setup, the custom firmware, dashes, the library and everything not listed here, the original documentation applies:
+its **[README](../README.md)**, its **[setup guide](../docs/setup.md)** and its website. Every change of this edition is
+listed in [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
+
+## Dashes and tools
+
+Dashes for the FX Pro's screen made alongside this edition (replicas of iRacing GT3 displays, a default dash based on
+the Lovely Dashboard) and the tools used to make, check and measure them are in their own repository:
+**[skuldgerry/fx-unleashed-dashes](https://github.com/skuldgerry/fx-unleashed-dashes)**.
 
 ## What's added
 
@@ -29,32 +42,47 @@ An info mark next to each one says what you should see.
 - Each **rev bar extra** (pit speed, refuelling, brake bias, launch aid...), the **encoder levels** and **every alert in
   turn** play their scripted scenario.
 
-![Play buttons in the lights editor](../docs/enhanced/play-buttons.png)
+<!-- screenshot: ../docs/enhanced/play-buttons.png -->
 
 ### Try any alert
 
 Each alert has its own play button: the wheel shows it as if its moment had come, over the driving lights, and follows its
 colour, lights, rhythm and style as you change them. No need to wait for a blue flag to see what it looks like.
 
-![Alerts with their play buttons](../docs/enhanced/alerts.png)
+<!-- screenshot: ../docs/enhanced/alerts.png -->
 
-### An alert on a single button
+### Alerts on single buttons
 
-An alert can light **one button's own light** (or a few): press the alert's buttons icon and pick them on a drawing of the wheel (click their lights, or press them on the wheel), next to or instead
-of the light groups. And a custom alert can **stay on** for a number of seconds after its condition was last true, for
-values that only flicker on for an instant.
+An alert can light **single buttons' own lights**, next to or instead of the light groups: press the alert's buttons icon
+and pick them on a drawing of the wheel (click their lights, or press the buttons on the wheel). And a custom alert can
+**stay on** for a number of seconds after its condition was last true, for values that only flicker on for an instant.
 
 The example this was made for: the button you flash your headlights with lights up when the car really flashes. In
 iRacing, `DataCorePlugin.GameRawData.Telemetry.dcHeadlightFlash` is true for only about 70 ms per press; with
-**Stays on: 2.5 s** the button lights for the whole flash.
+**Stays on: 2.5 s** the button lights for the whole flash. Another: two buttons blinking while the pit limiter is on (a
+custom alert on `pitLimiter`, with those two buttons picked).
 
-![Headlight flash on button 4](../docs/enhanced/flash.gif)
+<!-- animation: ../docs/enhanced/flash.gif -->
 
 The FX Pro comes with its **usual button map**, so a button's light works without mapping the buttons first (map them
 yourself if one lights the wrong light). The Button lights card now says what the map is for, separately from the colour
 of "Light a button while it's pressed".
 
-![Button lights card](../docs/enhanced/button-lights.png)
+<!-- screenshot: ../docs/enhanced/button-lights.png -->
+
+### Measured shift lights
+
+FX Unleashed 0.7.6 reads iRacing cars' shift lights from the sim's files, but it keeps only each light's first colour:
+on the BMW M4 GT3 the red and the two white dots never show. For the cars measured in the sim, this edition uses its own
+data first:
+
+- **BMW M4 GT3**: per gear, five green together, five light blue, all red, then two white dots in the middle (measured
+  over a lap of the Nordschleife, 8460 frames);
+- **McLaren 720S GT3**: the lights up to all blue, then red and blue on every other light one step later in every gear
+  (measured from 2674 frames of the car's dash).
+
+The game's own pit limiter lights are kept. Any car can also get **stages past the shift point** in Car tuning: the whole
+bar in one colour, two colours on every other light, or only the middle lights, steady or blinking.
 
 ### A clearer lights editor
 
@@ -73,12 +101,12 @@ dash and screensaver files in a zip if you like, and import them on this PC or a
 (firmware and screen state, presets captured from SimPro, where updates come from) is never exported or imported. An
 import is checked whole and applied the next time SimHub starts, after a copy of your current settings is kept.
 
-![Backup card](../docs/enhanced/backup.png)
+<!-- screenshot: ../docs/enhanced/backup.png -->
 
 ## Install
 
 1. Close SimHub.
-2. Copy `User.FXProRpmSync.dll` from the release zip into your SimHub folder (normally
+2. Copy `User.FXProRpmSync.dll` from a release zip of this repository into your SimHub folder (normally
    `C:\Program Files (x86)\SimHub\`), replacing the one there. It is the same file name as the official plugin: **use one
    or the other**, not both.
 3. Start SimHub. The plugin shows as **FX Unleashed Enhanced**; your settings, dashes and bindings are kept.
@@ -86,8 +114,9 @@ import is checked whole and applied the next time SimHub starts, after a copy of
 Updates come from this repository's releases (About tab). Settings from the official plugin are pointed here on the first
 start, so an official update doesn't replace this edition by surprise.
 
-**Going back to the official plugin:** install its DLL the same way. Your settings load there too; it ignores what it
-doesn't know (single-button alerts and their hold time are dropped the next time it saves). Export a backup first.
+**Going back to the official plugin:** install its DLL the same way, and in About > More set "Releases from" back to
+`fxunleashed/fx-unleashed`. Your settings load there too; it ignores what it doesn't know (single-button alerts and their
+hold time are dropped the next time it saves). Export a backup first.
 
 ## Building
 
@@ -96,9 +125,9 @@ DLLs), then `tools/UsbTest` for the offline checks. See the [original README](..
 
 ## License and credits
 
-- **FX Unleashed** by ziadkadry99 ([fxunleashed/fx-unleashed](https://github.com/fxunleashed/fx-unleashed)),
-  GPL-3.0 or later. **This edition** by Rafael Gomes ([skuldgerry](https://github.com/skuldgerry)), under the same
-  licence: see [LICENSE](../LICENSE), [NOTICE](../NOTICE) and [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
+- **[FX Unleashed](https://github.com/fxunleashed/fx-unleashed)** by ziadkadry99 and contributors, GPL-3.0 or later.
+  **This edition** by Rafael Gomes ([skuldgerry](https://github.com/skuldgerry)), under the same licence: see
+  [LICENSE](../LICENSE), [NOTICE](../NOTICE) and [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
 - Car rev light data, dashes and other credits: as listed in the [NOTICE](../NOTICE).
 - No Simagic software is in this repository or its releases. The custom firmware for Unleashed mode is FX Unleashed's,
   from [fx-unleashed-firmware](https://github.com/fxunleashed/fx-unleashed-firmware).

@@ -49,5 +49,5 @@ Based on FX Unleashed 0.7.6.
 
 ## Updates
 
-- The in-plugin updater looks for this edition's releases (`skuldgerry/fx-unleashed`), not the official ones, which would
+- The in-plugin updater looks for this edition's releases (`skuldgerry/fx-unleashed-enhanced`), not the official ones, which would
   replace it. Settings from the official plugin are pointed here on the first start.

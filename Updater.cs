@@ -126,7 +126,7 @@ namespace User.FXProRpmSync
     public sealed class Updater
     {
         /// <summary>Where this edition's releases are (its own fork: the official ones would replace it).</summary>
-        public const string DefaultRepo = "skuldgerry/fx-unleashed";
+        public const string DefaultRepo = "skuldgerry/fx-unleashed-enhanced";
         /// <summary>The official project's repository, which settings from the official plugin point at.</summary>
         public const string UpstreamRepo = "fxunleashed/fx-unleashed";
         /// <summary>The name this edition shows (the DLL and the plugin class keep the official names: SimHub keys on them).</summary>
