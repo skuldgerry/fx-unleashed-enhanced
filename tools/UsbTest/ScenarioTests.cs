@@ -155,6 +155,28 @@ static class ScenarioTests
         var inv = plays["invalid-lap"];
         Check("scenario invalid-lap: the encoders light red while the lap is invalid", Enumerable.Range(12, 5).All(i => At(inv, 5.0)[i].R > 200 && At(inv, 5.0)[i].G == 0) && !Enumerable.Range(12, 5).All(i => At(inv, 1.0)[i].R > 200 && At(inv, 1.0)[i].G == 0));
 
+        // a state held on the wheel ("Show on the wheel"): no end, and the look of that state whatever the values say
+        LedColor[] Held(CarState st, double t, LimiterLook car = null) { var run = new ScenarioRun(LightScenarios.Held(st, car), prof, fx); run.Elapsed(0); return run.Frame(t, false); }
+        var holdRun = new ScenarioRun(LightScenarios.Held(CarState.Menu), prof, fx);
+        holdRun.Elapsed(0);
+        Check("held state: never ends by itself, and is not one of the scenarios to play", !holdRun.Finished(0) && !holdRun.Finished(86400) && LightScenarios.Find("hold-Menu") == null);
+        Check("held state: driving has the rev bar lit and the side lights dark", Rev(Held(CarState.Driving, 4)).Any(On) && Left(Held(CarState.Driving, 4)).All(c => !On(c)));
+        Check("held state: engine off has the rev bar dark and uses the side lights", Rev(Held(CarState.EngineOff, 4)).All(c => !On(c)) && Left(Held(CarState.EngineOff, 4)).Any(On));
+        Check("held state: the engine start plays over and over", !Enumerable.Range(0, 30).All(k => Held(CarState.Starting, k * 0.05).Zip(Held(CarState.Starting, 0), Same).All(x => x))
+              && Held(CarState.Starting, 0.4).Zip(Held(CarState.Starting, 0.4 + CarStateTracker.StartSeconds + 1.2), Same).All(x => x));
+        var ownLimiter = new LimiterLook { WholeWheel = true, Colors = new List<string> { "#00FF00", "#00FF00" } };
+        Check("held state: the pit limiter uses the car's own lights when it has them", Enumerable.Range(0, 20).Any(k => Held(CarState.PitLimiter, k * 0.05, ownLimiter).Any(c => c.G > 150 && c.R < 60 && c.B < 60))
+              && !Enumerable.Range(0, 20).Any(k => Rev(Held(CarState.PitLimiter, k * 0.05)).Any(c => c.G > 150 && c.R < 60 && c.B < 60)));
+
+        // one alert tried on the wheel (each alert's play button): on whatever its condition and its switch say
+        var tryProf = prof.Clone();
+        tryProf.Alerts.Insert(0, new AlertRule { Trigger = AlertTrigger.Custom, Enabled = false, Condition = "DataCorePlugin.Nothing.Here", Color = "#00FF00", BlinkHz = 0, Groups = { LedGroup.Encoders } });
+        var tried = new ScenarioRun(LightScenarios.Held(CarState.Driving, null, 0), tryProf, fx); tried.Elapsed(0);
+        var plain = new ScenarioRun(LightScenarios.Held(CarState.Driving), tryProf, fx); plain.Elapsed(0);
+        Check("tried alert: shows on its lights though switched off and never true, and only with the play button",
+              Enumerable.Range(12, 5).All(i => tried.Frame(3, false)[i].G == 255 && tried.Frame(3, false)[i].R == 0) && !Enumerable.Range(12, 5).All(i => plain.Frame(3, false)[i].G == 255 && plain.Frame(3, false)[i].R == 0));
+        Check("tried alert: a place past the end of the list tries nothing", new ScenarioRun(LightScenarios.Held(CarState.Driving, null, 999), tryProf, fx).Frame(3, false) != null);
+
         Directory.CreateDirectory(Path.Combine(dir, "scenarios"));
         foreach (var sc in LightScenarios.All) Sheet(Path.Combine(dir, "scenarios", sc.Id + ".png"), sc, plays[sc.Id]);
         Check("scenarios: contact sheets written to OUT/scenarios", Directory.GetFiles(Path.Combine(dir, "scenarios"), "*.png").Length == LightScenarios.All.Count);

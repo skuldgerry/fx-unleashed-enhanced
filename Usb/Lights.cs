@@ -178,8 +178,19 @@ namespace User.FXProRpmSync
         /// "js:..." or one of the dash keys ("absActive"). See Bind.
         /// </summary>
         public string Condition;
+        /// <summary>
+        /// Single buttons whose own light shows the alert, as wheel button numbers (1-40), next to or instead of Groups.
+        /// The light under each comes from the button map (UsbSettings.ButtonLeds, the guided "Map the buttons" step):
+        /// a button that isn't mapped lights nothing.
+        /// </summary>
+        public List<int> Buttons = new List<int>();
+        /// <summary>
+        /// Stays on this many seconds after its condition was last true (0 = only while it is). For values that are a
+        /// pulse, not a state: iRacing's headlight flash is true for about 70 ms a press while the car flashes for seconds.
+        /// </summary>
+        public double HoldSeconds;
 
-        public AlertRule Clone() { var c = (AlertRule)MemberwiseClone(); c.Groups = new List<LedGroup>(Groups); return c; }
+        public AlertRule Clone() { var c = (AlertRule)MemberwiseClone(); c.Groups = new List<LedGroup>(Groups); c.Buttons = new List<int>(Buttons ?? new List<int>()); return c; }
 
         /// <summary>The DashValues key a custom condition is read from ("prop:"/"ncalc:"/"js:" or a dash key); null = none.</summary>
         [JsonIgnore]
@@ -824,13 +835,20 @@ namespace User.FXProRpmSync
             {
                 if (only != null && Array.IndexOf(only, a.Trigger) < 0) continue;
                 bool on = a.Enabled && Active(a, v) && !(limiterOn && a.Trigger == AlertTrigger.PitLimiter);
-                if (!on) { alertSince.Remove(a); continue; }
+                if (a == ForcedAlert) on = true;
+                else if (a.HoldSeconds > 0 && a.Enabled && v != null && v.Running)
+                {
+                    // a pulse (true for a frame or two) keeps the alert on for its hold time; each new pulse starts the time again
+                    if (on) alertLastTrue[a] = now;
+                    else on = alertLastTrue.TryGetValue(a, out var last) && now >= last && now - last < a.HoldSeconds;
+                }
+                if (!on) { alertSince.Remove(a); alertLastTrue.Remove(a); continue; }
                 // the alert's own clock starts when it comes on, so a flash starts lit (a car appearing beside you shows at once, not
                 // up to half a blink later) and every alert begins its cycle at the beginning
                 if (!alertSince.TryGetValue(a, out var since) || since > now) alertSince[a] = since = now;
                 double age = now - since;
                 var (r, g, b) = Rgb(a.Color);
-                var leds = a.Groups.SelectMany(Model.AlertLeds).Distinct().ToArray();
+                var leds = a.Groups.SelectMany(Model.AlertLeds).Concat(ButtonLights(a)).Distinct().ToArray();
                 for (int i = 0; i < leds.Length; i++)
                 {
                     int led = leds[i];
@@ -846,6 +864,23 @@ namespace User.FXProRpmSync
 
         /// <summary>When each alert that's on came on (engine time), so its blink starts at its beginning.</summary>
         private readonly Dictionary<AlertRule, double> alertSince = new Dictionary<AlertRule, double>();
+        /// <summary>When the condition of each alert with a hold time was last true (engine time).</summary>
+        private readonly Dictionary<AlertRule, double> alertLastTrue = new Dictionary<AlertRule, double>();
+
+        /// <summary>An alert of the profile being drawn that shows as if it were on, whatever its condition and switch say (trying one alert on the wheel).</summary>
+        public AlertRule ForcedAlert;
+
+        /// <summary>Which light sits under each wheel button (UsbSettings.ButtonLeds), for alerts on single buttons; null = none mapped.</summary>
+        public Dictionary<int, int> ButtonLeds;
+
+        /// <summary>The lights of an alert's single buttons: only mapped buttons, only lights this wheel has.</summary>
+        private IEnumerable<int> ButtonLights(AlertRule a)
+        {
+            var map = ButtonLeds;
+            if (map == null || a.Buttons == null) yield break;
+            foreach (var button in a.Buttons)
+                if (map.TryGetValue(button, out var led) && led >= 0 && led < Count) yield return led;
+        }
 
         /// <summary>
         /// The first extra whose situation holds takes the rev bar: pit speed in the pit lane, the launch aid at a standing
