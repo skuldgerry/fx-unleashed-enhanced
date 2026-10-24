@@ -16,7 +16,7 @@ Based on FX Unleashed 0.7.6.
   says what to look for.
 - **Try one alert.** Each alert has a play button: the wheel shows it as if it were on, over the driving lights, and follows
   its colour, lights and rhythm as you change them.
-- **An alert on a single button.** An alert can light one button's own light (or several), by its number, next to or instead
+- **An alert on a single button.** An alert can light one button's own light (or several), picked on a drawing of the wheel (click the lights, or press the buttons), next to or instead
   of the groups.
 - **An alert that stays on.** A custom alert can stay on for a number of seconds after its condition was last true: for
   values that are only true for an instant, like iRacing's headlight flash (`dcHeadlightFlash`, about 70 ms a press).

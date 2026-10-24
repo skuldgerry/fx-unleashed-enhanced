@@ -54,7 +54,7 @@ namespace User.FXProRpmSync
             // the map is its own thing: the switch above uses it, and so does an alert on a single button (each with its own colour)
             side.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 6, 0, 14) });
             side.Children.Add(Theme.Eyebrow("Which light is under which button"));
-            side.Children.Add(Theme.Note("What tells the plugin which light to use for a button: for the switch above, and for an alert on a single button (the # field of an alert, with the alert's own colour). " +
+            side.Children.Add(Theme.Note("What tells the plugin which light to use for a button: for the switch above, and for an alert on a single button (the buttons icon of an alert, with the alert's own colour). " +
                                          "It is one map for the whole wheel, not something to set for each use."));
             status = new TextBlock { Foreground = Theme.Text2, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8) };
             side.Children.Add(status);

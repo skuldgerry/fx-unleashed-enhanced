@@ -1254,28 +1254,34 @@ namespace User.FXProRpmSync
                 chip.Unchecked += (s, e) => { a.Groups.Remove(gg); paint(); Changed(); };
                 row.Children.Add(chip);
             }
-            // one button's own light, by its number, next to (or instead of) the groups
-            var buttons = new TextBox { Width = 40, Padding = new Thickness(4, 2, 4, 2), Margin = new Thickness(0), Text = string.Join(", ", a.Buttons ?? new List<int>()), VerticalAlignment = VerticalAlignment.Center };
+            // single buttons' own lights, next to (or instead of) the groups: picked on a drawing of the wheel
+            var pickGlyph = new TextBlock { Text = "", FontFamily = Theme.Icons, FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+            var pickCount = new TextBlock { FontSize = 11, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var pickBody = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            pickBody.Children.Add(pickGlyph);
+            pickBody.Children.Add(pickCount);
+            var pick = new Button { Content = pickBody, MinWidth = 32, Height = 26, Padding = new Thickness(4, 0, 4, 0), Margin = new Thickness(0, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            ToolTipService.SetShowDuration(pick, 30000);
             Action showButtons = () =>
             {
-                var unmapped = (a.Buttons ?? new List<int>()).Where(n => !S.ButtonMap.ContainsKey(n)).ToList();
-                buttons.BorderBrush = unmapped.Count > 0 ? Theme.Amber : Theme.Line2;
-                buttons.ToolTip = "Light a single button too: its number (several with commas), the number SimHub shows for it when you press it. Empty = none.\n" +
-                                  "Which light that is comes from the button map (Button lights card, at the bottom of this tab): the wheel's usual one until you map your own.\n" +
-                                  "Deselect the groups to light only that button." +
-                                  (unmapped.Count > 0 ? $"\n\nButton {string.Join(", ", unmapped)} has no light in the button map, so nothing lights: it isn't one of the lit buttons, or the map needs it (\"Which light is under which button\", in the Button lights card at the bottom of this tab)." : "");
-            };
-            buttons.LostFocus += (s, e) =>
-            {
-                var typed = buttons.Text.Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                                   .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n >= 1 && n <= 40).Distinct().ToList();
-                buttons.Text = string.Join(", ", typed);
-                if (!typed.SequenceEqual(a.Buttons ?? new List<int>())) { a.Buttons = typed; Changed(); }
-                showButtons();
+                var picked = a.Buttons ?? new List<int>();
+                var unmapped = picked.Where(n => !S.ButtonMap.ContainsKey(n)).ToList();
+                pickCount.Text = picked.Count > 0 ? picked.Count.ToString() : "";
+                pickGlyph.Foreground = pickCount.Foreground = unmapped.Count > 0 ? Theme.Amber : picked.Count > 0 ? Theme.Text : Theme.Text3;
+                pick.ToolTip = (picked.Count > 0 ? "Single buttons: " + string.Join(", ", picked) + "\n\n" : "No single button: only the groups.\n\n") +
+                               "Click to choose single buttons on the wheel (click their lights, or press them). Deselect the groups to light only those buttons.\n" +
+                               "Which light is under each button comes from the button map (Button lights card, bottom of this tab): the wheel's usual one until you map your own." +
+                               (unmapped.Count > 0 ? $"\n\nButton {string.Join(", ", unmapped)} has no light in the button map, so nothing lights there." : "");
             };
             showButtons();
-            row.Children.Add(new TextBlock { Text = "#", Foreground = Theme.Text3, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0), ToolTip = "A single button's light, by its number" });
-            row.Children.Add(buttons);
+            pick.Click += (s, e) =>
+            {
+                var chosen = ButtonPicker.Pick(Window.GetWindow(this), plugin, a.Buttons, a.Color, LightPresets.AlertName(a));
+                if (chosen == null) return;
+                if (!chosen.SequenceEqual(a.Buttons ?? new List<int>())) { a.Buttons = chosen; Changed(); }
+                showButtons();
+            };
+            row.Children.Add(pick);
             var hz = new ComboBox { Width = 110, Margin = new Thickness(6, 0, 0, 0) };
             foreach (var (label, value) in new[] { ("Steady", 0.0), ("Pulse 1/s", 1.0), ("Blink 2/s", 2.0), ("Blink 4/s", 4.0), ("Flicker 8/s", 8.0), ("Flicker 12/s", 12.0) })
                 hz.Items.Add(new ComboBoxItem { Content = label, Tag = value });

@@ -40,7 +40,7 @@ colour, lights, rhythm and style as you change them. No need to wait for a blue 
 
 ### An alert on a single button
 
-An alert can light **one button's own light** (or a few): type the button's number in the **#** field, next to or instead
+An alert can light **one button's own light** (or a few): press the alert's buttons icon and pick them on a drawing of the wheel (click their lights, or press them on the wheel), next to or instead
 of the light groups. And a custom alert can **stay on** for a number of seconds after its condition was last true, for
 values that only flicker on for an instant.
 
