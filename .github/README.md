@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="../assets/brand/lockup.png" alt="FX Unleashed" width="420">
-</p>
-
 <h1 align="center">FX Unleashed Enhanced</h1>
 
 <p align="center">
