@@ -125,7 +125,12 @@ namespace User.FXProRpmSync
     /// </summary>
     public sealed class Updater
     {
-        public const string DefaultRepo = "fxunleashed/fx-unleashed";
+        /// <summary>Where this edition's releases are (its own fork: the official ones would replace it).</summary>
+        public const string DefaultRepo = "skuldgerry/fx-unleashed";
+        /// <summary>The official project's repository, which settings from the official plugin point at.</summary>
+        public const string UpstreamRepo = "fxunleashed/fx-unleashed";
+        /// <summary>The name this edition shows (the DLL and the plugin class keep the official names: SimHub keys on them).</summary>
+        public const string ProductName = "FX Unleashed Enhanced";
         public const string DllName = "User.FXProRpmSync.dll";
         private const long MaxZipBytes = 30 * 1024 * 1024;
 

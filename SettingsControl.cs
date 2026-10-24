@@ -86,7 +86,7 @@ namespace User.FXProRpmSync
             name.Inlines.Add(new System.Windows.Documents.Run("FX") { Foreground = Theme.Red });
             name.Inlines.Add(new System.Windows.Documents.Run(" UNLEASHED") { Foreground = Theme.Text, FontWeight = FontWeights.Light });
             titles.Children.Add(name);
-            titles.Children.Add(new TextBlock { Text = $"Custom dashes and lights for the Simagic FX Pro  ·  v{Updater.CurrentVersion}", Foreground = Theme.Text3, FontSize = 12 });
+            titles.Children.Add(new TextBlock { Text = $"Enhanced edition  ·  custom dashes and lights for the Simagic FX Pro  ·  v{Updater.CurrentVersion}", Foreground = Theme.Text3, FontSize = 12 });
             header.Children.Add(titles);
             page.Children.Add(header);
             page.Children.Add(feedProblem = FeedProblemBanner(out feedProblemTitle, out feedProblemAction, out feedProblemDetail));
@@ -387,7 +387,7 @@ namespace User.FXProRpmSync
             if (u?.AutoRolledBackFrom != null) msg = $"v{u.AutoRolledBackFrom} failed to start three times, so the previous version was put back. Restart SimHub to use it.";
             else if (u?.StartupFailedBefore == true && u.PreviousVersion != null) msg = $"The last start of v{Updater.CurrentVersion} didn't finish. If something's wrong, you can roll back to v{u.PreviousVersion}.";
             else if (u?.UpdateAvailable == true && u.Latest.Version.ToString() != plugin.Settings.Updates.SkippedVersion)
-                msg = $"FX Unleashed v{u.Latest.Version} is available (you have v{Updater.CurrentVersion}).";
+                msg = $"{Updater.ProductName} v{u.Latest.Version} is available (you have v{Updater.CurrentVersion}).";
             else if (u?.State == Updater.UpdateState.Installed) msg = u.Message;
             updateBanner.Visibility = msg != null ? Visibility.Visible : Visibility.Collapsed;
             if (msg != null) updateText.Text = msg;

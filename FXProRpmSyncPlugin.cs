@@ -64,9 +64,9 @@ namespace User.FXProRpmSync
         public int SettingsVersion;
     }
 
-    [PluginDescription("Custom dashes and lights for the Simagic FX Pro: rev lights and dashes per car through SimPro, or, on the flashed wheel, your own dashes and every light over USB. Independent project, not affiliated with Simagic.")]
+    [PluginDescription("Custom dashes and lights for the Simagic FX Pro: rev lights and dashes per car through SimPro, or, on the flashed wheel, your own dashes and every light over USB. Enhanced edition of FX Unleashed. Independent project, not affiliated with Simagic.")]
     [PluginAuthor("ziadkadry99")]
-    [PluginName("FX Unleashed")]
+    [PluginName(Updater.ProductName)]
     public partial class FXProRpmSyncPlugin : IPlugin, IDataPlugin, IWPFSettingsV2
     {
         private const string RpmPart = "rpm_lights";
@@ -76,7 +76,7 @@ namespace User.FXProRpmSync
         public PluginManager PluginManager { get; set; }
         public System.Windows.Media.ImageSource PictureIcon => icon ?? (icon = LoadIcon());
         private System.Windows.Media.ImageSource icon;
-        public string LeftMenuTitle => "FX Unleashed";
+        public string LeftMenuTitle => Updater.ProductName;
 
         private readonly SimProClient simPro = new SimProClient();
         private CarLedDatabase carDb;

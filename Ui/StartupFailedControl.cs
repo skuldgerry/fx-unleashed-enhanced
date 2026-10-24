@@ -15,7 +15,7 @@ namespace User.FXProRpmSync
             Theme.Apply(this);
             Background = Theme.Page;
             var body = new StackPanel { Margin = new Thickness(28), MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left };
-            body.Children.Add(Theme.Eyebrow("FX Unleashed v" + Updater.CurrentVersion, Theme.Red));
+            body.Children.Add(Theme.Eyebrow(Updater.ProductName + " v" + Updater.CurrentVersion, Theme.Red));
             body.Children.Add(Theme.Title("The plugin couldn't start", 24));
             body.Children.Add(Theme.Note("Nothing was sent to the wheel or to SimPro. The details are in SimHub's log (Logs\\SimHub.txt, lines starting with [FXProRpmSync]).",
                                          new Thickness(0, 8, 0, 12)));
