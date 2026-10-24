@@ -36,6 +36,7 @@ static class FeatureTests
         PerDashRam();
         PagesTests.Run();
         PicturesTests.Run(dir);
+        SettingsTransferTests.Run(dir);
         foreach (var extra in Extra) extra();
         Console.WriteLine(failures == 0 ? "features: OK" : $"features: {failures} FAILED");
         return failures == 0 ? 0 : 1;

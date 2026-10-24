@@ -8,7 +8,8 @@ using System.Windows.Threading;
 namespace User.FXProRpmSync
 {
     /// <summary>
-    /// Updates (check, install, roll back, channel) and About (version, disclaimer, licence, credits, the legal texts).
+    /// Updates (check, install, roll back, channel), Backup (the settings as a file: BackupCard) and About (version,
+    /// disclaimer, licence, credits, the legal texts).
     /// In both modes: everyone updates the same plugin.
     /// </summary>
     public class AboutTab : StackPanel
@@ -74,6 +75,8 @@ namespace User.FXProRpmSync
             adv.Children.Add(rollback);
             up.Children.Add(new Expander { Header = "More", Content = adv });
             Children.Add(Theme.CardBox(up));
+
+            Children.Add(Theme.CardBox(new BackupCard(plugin)));
 
             // ----- About -----
             var about = new StackPanel();
