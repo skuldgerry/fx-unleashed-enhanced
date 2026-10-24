@@ -27,6 +27,19 @@ Based on FX Unleashed 0.7.6.
   track says so where it is picked; the two actions that move a car's lights from the wheel can be bound in the rev lights
   editor.
 
+## Rev lights
+
+- **Measured cars use measured data.** For the cars measured in the sim, this edition's own data comes before the game
+  data FX Unleashed 0.7.6 reads from iRacing's files (which keeps only each light's first colour; on the BMW M4 GT3 the
+  red and the white dots never showed):
+  - **BMW M4 GT3**: its own profile, per gear (5 green together, 5 light blue, all red, steady), then two white dots in
+    the middle 350 rpm past the red;
+  - **McLaren 720S GT3**: Lovely Car Data's lights (checked against the sim), then red and blue on every other light one
+    step of the car's light spacing past the all-blue.
+  The game's own pit limiter lights are kept.
+- **Stages past the shift point** for any car, in Car tuning: the whole bar in one colour, two colours on every other
+  light, or only the middle lights, steady or blinking, each starting so many rpm (or light steps) past the shift point.
+
 ## Settings
 
 - **Backup** (About tab): export the settings to a file, with the dash and screensaver files in a zip if wanted, and import

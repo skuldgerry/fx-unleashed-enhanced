@@ -1377,6 +1377,19 @@ namespace User.FXProRpmSync
             if (rev.UseCarData && car != null)
             {
                 var layout = car.Gears != null ? car.ForGear(v.GearKey) : car;
+                // past the shift point the car's own bar may go on in stages (two colours, another colour, a few dots)
+                var phase = layout.PhaseAt(rpm);
+                if (phase != null)
+                {
+                    for (int i = 0; i < leds.Length; i++)
+                    {
+                        var colour = phase.ColourAt(i, leds.Length, now);
+                        if (colour == null) { frame[leds[i]] = new LedColor(0, 0, 0, 1); continue; }
+                        var (pr, pg, pb) = Rgb(colour);
+                        frame[leds[i]] = new LedColor(pr, pg, pb, bright);
+                    }
+                    return;
+                }
                 if (layout.FlashRpm > 0 && rpm >= layout.FlashRpm && layout.FlashFrames != null && layout.FlashFrames.Count > 1)
                 {
                     // the car's own blink, frame by frame, on the game's clock (in step with the dash in the sim)

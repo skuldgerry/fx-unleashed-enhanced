@@ -228,6 +228,23 @@ namespace User.FXProRpmSync
             editorBody.Children.Add(customPanel);
             editorBody.Children.Add(patternPanel);
             editorBody.Children.Add(previewBody);
+
+            // Past the shift point: stages of the car's own bar that the light data has no place for (USB mode draws them)
+            afterRows = new StackPanel();
+            var afterAdd = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+            afterAdd.Children.Add(MakeButton("Add a stage", () => AddPhase(new RevPhase { AboveShiftRpm = 200 }), 8));
+            afterAdd.Children.Add(new TextBlock { Text = "or start from a car's:", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.7, Margin = new Thickness(4, 0, 8, 4) });
+            afterAdd.Children.Add(MakeButton("Two white dots (BMW M4 GT3)", () => AddPhase(new RevPhase { AboveShiftRpm = 350, Look = PhaseLook.Centre, Count = 2, Color1 = LedPalette.White }), 8));
+            afterAdd.Children.Add(MakeButton("Blue near the limiter (Corvette Z06 GT3.R)", () => AddPhase(new RevPhase { AboveShiftRpm = 300, Look = PhaseLook.All, Color1 = LedPalette.Blue }), 8));
+            afterAdd.Children.Add(MakeButton("Red and blue, one light step on (McLaren 720S GT3)", () => AddPhase(new RevPhase { AboveSteps = 1, Look = PhaseLook.Alternate, Color1 = LedPalette.Red, Color2 = LedPalette.Blue }), 8));
+            afterPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
+            afterPanel.Children.Add(Small("PAST THE SHIFT POINT"));
+            afterPanel.Children.Add(Muted("What the bar does when you rev past the shift point, in stages: each starts so many rpm above it (0 = at the shift point, in place of the flash), so it follows the " +
+                                          "car's shift point in every gear. The rpm in the car buttons below are a starting guess: set them from what the car does. Unleashed mode only, and not in the preview above: drive the car to see it.",
+                                          new Thickness(0, 0, 0, 8)));
+            afterPanel.Children.Add(afterRows);
+            afterPanel.Children.Add(afterAdd);
+            editorBody.Children.Add(afterPanel);
             editorBody.Children.Add(actions);
             editorCard = Card(editorBody, new Thickness(0, 0, 0, 12));
             editorCard.BorderBrush = Accent;
@@ -273,6 +290,8 @@ namespace User.FXProRpmSync
                 carButtons.Children.Add(MakeButton("Shift this car's lights earlier / later", () => OpenEditor(plugin.NewOverrideForCurrentCar(OverrideKind.Offset)), 8));
                 carButtons.Children.Add(MakeButton("Set each LED for this car", () => OpenEditor(plugin.NewOverrideForCurrentCar(OverrideKind.Custom)), 8));
                 carButtons.Children.Add(MakeButton("Use a pattern for this car", () => OpenEditor(plugin.NewOverrideForCurrentCar(OverrideKind.Pattern)), 8));
+                if (plugin.Unlocked)
+                    carButtons.Children.Add(MakeButton("Lights past the shift point", () => { OpenEditor(plugin.NewOverrideForCurrentCar(OverrideKind.Offset)); afterPanel.BringIntoView(); }, 8));
             }
             else
             {
@@ -328,11 +347,110 @@ namespace User.FXProRpmSync
             deleteButton.Visibility = plugin.GetOverride(o.CarKey) != null ? Visibility.Visible : Visibility.Collapsed;
             if (editing.Custom != null) LoadCustom();
             if (editing.Style != null) LoadPattern();
+            // the car's own stages past the shift point show as rows, to change or remove (no rows saved = none)
+            if (editing.After == null && editBase?.After != null) editing.After = editBase.After.Select(p => p.Clone()).ToList();
+            LoadAfter();
             UpdateEditorVisibility();
             Changed();
             editorCard.Visibility = Visibility.Visible;
             frameTimer.Start();
             editorCard.BringIntoView();
+        }
+
+        private StackPanel afterPanel, afterRows;
+
+        private void AddPhase(RevPhase p)
+        {
+            if (editing == null) return;
+            (editing.After ?? (editing.After = new List<RevPhase>())).Add(p);
+            LoadAfter();
+            Changed();
+        }
+
+        /// <summary>One row per stage past the shift point: where it starts, its look, its colours, its rhythm.</summary>
+        private void LoadAfter()
+        {
+            afterPanel.Visibility = plugin.Unlocked ? Visibility.Visible : Visibility.Collapsed;
+            afterRows.Children.Clear();
+            if (editing?.After == null) return;
+            bool was = loading;
+            loading = true;
+            foreach (var phase in editing.After.ToList())
+            {
+                var p = phase;
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+                TextBlock Label(string text, double left = 10) => new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center, Opacity = 0.8, Margin = new Thickness(left, 0, 6, 0) };
+
+                var above = new TextBox { Width = 60, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Text = p.AboveShiftRpm.ToString(),
+                                          ToolTip = "Rpm above the shift point where this stage starts. 0 = at the shift point, in place of the flash." };
+                above.TextChanged += (s, e) =>
+                {
+                    if (loading) return;
+                    bool ok = int.TryParse(above.Text, out var v) && v >= 0 && v <= 5000;
+                    above.BorderBrush = ok ? null : ErrorBrush;
+                    if (ok) { p.AboveShiftRpm = v; Changed(); }
+                };
+                var look = new ComboBox { Width = 200, VerticalAlignment = VerticalAlignment.Center };
+                look.Items.Add(new ComboBoxItem { Content = "The whole bar, one colour", Tag = PhaseLook.All });
+                look.Items.Add(new ComboBoxItem { Content = "Two colours, every other light", Tag = PhaseLook.Alternate });
+                look.Items.Add(new ComboBoxItem { Content = "Only the lights in the middle", Tag = PhaseLook.Centre });
+                look.SelectedItem = look.Items.Cast<ComboBoxItem>().First(i => (PhaseLook)i.Tag == p.Look);
+                var c1 = ColorPicker(compact: false, includeOff: false);
+                SelectColor(c1, p.Color1);
+                c1.SelectionChanged += (s, e) => { if (!loading && c1.SelectedItem is ComboBoxItem it) { p.Color1 = (string)it.Tag; Changed(); } };
+                var c2 = ColorPicker(compact: false, includeOff: false);
+                SelectColor(c2, p.Color2);
+                c2.SelectionChanged += (s, e) => { if (!loading && c2.SelectedItem is ComboBoxItem it) { p.Color2 = (string)it.Tag; Changed(); } };
+                var count = new TextBox { Width = 40, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Text = p.Count.ToString(), ToolTip = "How many lights in the middle stay lit" };
+                count.TextChanged += (s, e) =>
+                {
+                    if (loading) return;
+                    bool ok = int.TryParse(count.Text, out var v) && v >= 1 && v <= RpmLightsMapper.WheelLeds;
+                    count.BorderBrush = ok ? null : ErrorBrush;
+                    if (ok) { p.Count = v; Changed(); }
+                };
+                var countLabel = Label("lights");
+                var hz = new ComboBox { Width = 120, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), ToolTip = "Steady, or blinking. With two colours: how often they trade places." };
+                foreach (var (label, value) in new[] { ("Steady", 0.0), ("2 a second", 2.0), ("4 a second", 4.0), ("8 a second", 8.0), ("12 a second", 12.0) })
+                    hz.Items.Add(new ComboBoxItem { Content = label, Tag = value });
+                hz.SelectedItem = hz.Items.Cast<ComboBoxItem>().OrderBy(i => Math.Abs((double)i.Tag - p.BlinkHz)).First();
+                hz.SelectionChanged += (s, e) => { if (!loading && hz.SelectedItem is ComboBoxItem it) { p.BlinkHz = (double)it.Tag; Changed(); } };
+                Action show = () =>
+                {
+                    c2.Visibility = p.Look == PhaseLook.Alternate ? Visibility.Visible : Visibility.Collapsed;
+                    count.Visibility = countLabel.Visibility = p.Look == PhaseLook.Centre ? Visibility.Visible : Visibility.Collapsed;
+                };
+                look.SelectionChanged += (s, e) => { if (!loading && look.SelectedItem is ComboBoxItem it) { p.Look = (PhaseLook)it.Tag; show(); Changed(); } };
+                show();
+
+                row.Children.Add(Label("From", 0));
+                row.Children.Add(above);
+                row.Children.Add(Label("rpm and", 6));
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                var steps = new TextBox { Width = 40, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Text = p.AboveSteps.ToString("0.##", inv),
+                                          ToolTip = "Plus this many steps of the car's own light spacing in each gear (the gap from its last light to the shift point). " +
+                                                    "For a stage that comes \"one more light\" after the shift point, whatever the gear: 1. Otherwise 0." };
+                steps.TextChanged += (s, e) =>
+                {
+                    if (loading) return;
+                    bool ok = double.TryParse(steps.Text.Replace(',', '.'), System.Globalization.NumberStyles.Float, inv, out var v) && v >= 0 && v <= 10;
+                    steps.BorderBrush = ok ? null : ErrorBrush;
+                    if (ok) { p.AboveSteps = v; Changed(); }
+                };
+                row.Children.Add(steps);
+                row.Children.Add(Label("light steps above:", 6));
+                row.Children.Add(look);
+                row.Children.Add(c1);
+                row.Children.Add(c2);
+                row.Children.Add(count);
+                row.Children.Add(countLabel);
+                row.Children.Add(hz);
+                var remove = MakeButton("Remove", () => { editing.After.Remove(p); LoadAfter(); Changed(); }, 0);
+                remove.Margin = new Thickness(10, 0, 0, 0);
+                row.Children.Add(remove);
+                afterRows.Children.Add(row);
+            }
+            loading = was;
         }
 
         private void CloseEditor()

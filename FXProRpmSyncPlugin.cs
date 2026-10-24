@@ -1249,7 +1249,12 @@ namespace User.FXProRpmSync
             lock (sync) { if (gameLimiter != null) gameLimiters[t.CarKey] = gameLimiter; else gameLimiters.Remove(t.CarKey); }
             CurrentGameLights = game;
             CarLedProfile profile = null;
-            if (game?.Car.Rev != null)
+            // cars this edition measured in the sim keep its own data (and Lovely Car Data's, checked against the sim) before
+            // the game data, which shows only each light's first colour (KnownRevPhases.PreferOwn); the game's limiter lights stay
+            bool own = (Settings.UseCarDatabase || unlocked) && KnownRevPhases.PreferOwn(t.CarKey);
+            if (own) { game = null; CurrentGameLights = null; profile = KnownRevPhases.Profile(t.CarKey); }
+            if (profile != null) { }
+            else if (game?.Car.Rev != null)
                 profile = CarLightsDatabase.ToProfile(game.Car.Rev, game.Car.CarId, out _);
             else if ((Settings.UseCarDatabase || unlocked) && !profileCache.TryGetValue(t.CarKey, out profile))
             {
@@ -1268,6 +1273,12 @@ namespace User.FXProRpmSync
                     ? $"{game.Label} game data ({game.Car.Rev.Lights.Count} lights, {game.Car.Rev.Low}-{game.Car.Rev.High} rpm" + (game.Car.Rev.ColourGuessed ? ", some colours guessed" : "")
                       + (game.ReportedAs != null ? $", as {game.Car.CarId})" : ")")
                     : $"car database, {profile.MatchedBy} ({profile.LedNumber} LEDs" + (layout.Gears != null ? ", per gear)" : ")");
+                // what the car's own bar does past the shift point, for the cars where it was measured (the light data has no place for it)
+                if (unlocked && KnownRevPhases.For(t.CarKey) is List<RevPhase> known)
+                {
+                    layout.After = known;
+                    source += ", with its lights past the shift point";
+                }
             }
             else if (t.Anchors.Valid)
             {
