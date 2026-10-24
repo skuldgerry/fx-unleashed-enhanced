@@ -88,6 +88,23 @@ static class RevPhaseTests
         new[] { 5478, 5676, 5874, 6068, 6265, 6473, 6660, 6856, 7053, 7053 }.CopyTo(real.Rpm, 0);
         real.After = KnownRevPhases.For("IRacing | mclaren720sgt3");
         Check("phases: with the car's own second gear numbers that is 7250 rpm (measured: 7256)", real.StepBelowShift == 197 && real.PhaseAt(7249) == null && real.PhaseAt(7250) != null);
+        // the pit limiter alert next to the limiter lights: they keep the rev bar, the alert lights the buttons picked for it
+        var lp = LightPresets.Find("synthwave").Clone();
+        lp.Rev.UseCarData = true; lp.RevTint = 0;
+        lp.Limiter = new LimiterLook { Colors = new List<string> { "#0000FF", "#0000FF" } };
+        var pitAlert = lp.Alerts.FirstOrDefault(x => x.Trigger == AlertTrigger.PitLimiter) ?? new AlertRule { Trigger = AlertTrigger.PitLimiter };
+        if (!lp.Alerts.Contains(pitAlert)) lp.Alerts.Insert(0, pitAlert);
+        pitAlert.Enabled = true; pitAlert.Color = "#FFFF00"; pitAlert.BlinkHz = 0; pitAlert.Groups = new List<LedGroup> { LedGroup.Rev }; pitAlert.Buttons = new List<int> { 4, 7 };
+        var le = new LightEngine(WheelModel.FxPro) { ButtonLeds = new Dictionary<int, int> { [4] = 7, [7] = 4 } };
+        var pv = new DashValues { Running = true, EngineOn = true, MaxRpm = 8000, Rpm = 3400, GearKey = "1", SpeedKmh = 50, PitLimiter = true, InPitLane = true };
+        var onLimiter = le.Render(lp, pv, car, 1.0, false, LightMoment.Of(CarState.PitLimiter));
+        Func<LedColor, bool> yellow = c => c.R == 255 && c.G == 255 && c.B == 0;
+        Check("pit limiter: its alert lights the buttons picked for it next to the limiter lights, and leaves the rev bar to them",
+              yellow(onLimiter[7]) && yellow(onLimiter[4]) && !Rev(onLimiter).Any(yellow));
+        var inMenu = new DashValues { Running = true, EngineOn = true, MaxRpm = 8000, Rpm = 0, GearKey = "N", SpeedKmh = 0, PitLimiter = true, InPitLane = true, InMenu = true };
+        var menuFrame = le.Render(lp, inMenu, car, 1.0, false, LightMoment.Of(CarState.Menu));
+        Check("pit limiter: in a menu no alert shows, though the game leaves its pit limiter flag on", !yellow(menuFrame[7]) && !yellow(menuFrame[4]));
+
         // this edition's own data comes before the sim's for the cars it measured (0.7.6's game data showed only each
         // light's first colour: on the M4 the red and the white dots never came)
         Check("own data: the measured cars prefer it, the others don't", KnownRevPhases.PreferOwn("IRacing | bmwm4gt3") && KnownRevPhases.PreferOwn("iracing | MCLAREN720SGT3")

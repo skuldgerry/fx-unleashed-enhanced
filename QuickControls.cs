@@ -119,7 +119,8 @@ namespace User.FXProRpmSync
         /// </summary>
         /// <summary>The pit limiter lights a car shows: the ones saved for it, else the game's own (from its dash), else
         /// null = the preset's.</summary>
-        public LimiterLook CarLimiterFor(string carKey) => LimiterFor(carKey) ?? GameLimiterFor(carKey);
+        public LimiterLook CarLimiterFor(string carKey) =>
+            LimiterFor(carKey) ?? (ActiveLightsFor(carKey)?.UseGameLimiter == false ? null : GameLimiterFor(carKey));
 
         /// <summary>The car's pit limiter lights from the game's data, or null.</summary>
         public LimiterLook GameLimiterFor(string carKey)

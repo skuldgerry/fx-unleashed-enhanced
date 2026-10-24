@@ -287,6 +287,9 @@ namespace User.FXProRpmSync
         public bool StillWhileDriving = true;
         /// <summary>While driving the side lights stay dark: they're there for alerts (spotter, flags), which still light them.</summary>
         public bool SidesDarkWhileDriving = true;
+        /// <summary>On the pit limiter, a car's own limiter lights from the game's data come before this preset's (Limiter). Off:
+        /// this preset's for every car; lights saved for a car in its own card still win.</summary>
+        public bool UseGameLimiter = true;
         /// <summary>What the rev bar shows instead of the shift lights in some situations (pit lane, refuelling, LMU lift and coast, a brake bias change, a launch).</summary>
         public RevExtrasOptions Extras = new RevExtrasOptions();
 
@@ -807,7 +810,7 @@ namespace User.FXProRpmSync
             // The pit limiter: this car's own lights, else the preset's
             var limiter = m?.CarLimiter ?? p.Limiter;
             bool limiterOn = state == CarState.PitLimiter && limiter != null && limiter.Style != LimiterStyle.None;
-            if (limiterOn) ApplyLimiter(frame, limiter, now, v);
+            bool[] limiterLeds = limiterOn ? ApplyLimiter(frame, limiter, now, v) : null;
 
             // The rev bar's extras (pit speed, refuelling, lift and coast, brake bias, launch): over the shift lights while they last
             if (m?.Extras != null && (state == CarState.Driving || state == CarState.PitLimiter) && Model.Has(LedGroup.Rev))
@@ -817,8 +820,10 @@ namespace User.FXProRpmSync
             if (state == CarState.Starting && p.Startup != StartupStyle.None) ApplyStartup(frame, p.Startup, m.Progress);
             if (state == CarState.Stopping && p.Shutdown != ShutdownStyle.None) ApplyShutdown(frame, p.Shutdown, m.Progress);
 
-            // Alerts: first active rule wins for a LED. The pit limiter alert gives way to the limiter lights above.
-            PaintAlerts(frame, p, v, now, limiterOn, null);
+            // Alerts: first active rule wins for a LED. The pit limiter alert gives way to the limiter lights above where they
+            // are, and lights the rest of its own (buttons picked for it, say). None in a menu or with no game: a value the
+            // game leaves set there (iRacing keeps its pit limiter flag in the menus) isn't the car's moment.
+            if (state != CarState.Menu && state != CarState.Idle) PaintAlerts(frame, p, v, now, limiterLeds, null);
             return frame;
         }
 
@@ -826,7 +831,8 @@ namespace User.FXProRpmSync
         /// Alerts over a frame: the first active rule wins for a LED. `only` = just those triggers (the spotter over another
         /// program's lights).
         /// </summary>
-        private bool PaintAlerts(LedColor[] frame, LightProfile p, DashValues v, double now, bool limiterOn, AlertTrigger[] only)
+        /// <param name="limiterLeds">The lights the pit limiter drew (null = it isn't on): the pit limiter alert leaves those to it.</param>
+        private bool PaintAlerts(LedColor[] frame, LightProfile p, DashValues v, double now, bool[] limiterLeds, AlertTrigger[] only)
         {
             var taken = new bool[Count];
             bool painted = false;
@@ -834,7 +840,9 @@ namespace User.FXProRpmSync
             foreach (var a in p.Alerts)
             {
                 if (only != null && Array.IndexOf(only, a.Trigger) < 0) continue;
-                bool on = a.Enabled && Active(a, v) && !(limiterOn && a.Trigger == AlertTrigger.PitLimiter);
+                bool on = a.Enabled && Active(a, v);
+                // the pit limiter alert under the limiter lights: only on the lights they don't draw
+                bool[] leaveTo = a.Trigger == AlertTrigger.PitLimiter ? limiterLeds : null;
                 if (a == ForcedAlert) on = true;
                 else if (a.HoldSeconds > 0 && a.Enabled && v != null && v.Running)
                 {
@@ -848,7 +856,7 @@ namespace User.FXProRpmSync
                 if (!alertSince.TryGetValue(a, out var since) || since > now) alertSince[a] = since = now;
                 double age = now - since;
                 var (r, g, b) = Rgb(a.Color);
-                var leds = a.Groups.SelectMany(Model.AlertLeds).Concat(ButtonLights(a)).Distinct().ToArray();
+                var leds = a.Groups.SelectMany(Model.AlertLeds).Concat(ButtonLights(a)).Distinct().Where(l => leaveTo == null || !leaveTo[l]).ToArray();
                 for (int i = 0; i < leds.Length; i++)
                 {
                     int led = leds[i];
@@ -930,7 +938,7 @@ namespace User.FXProRpmSync
         {
             if (frame == null || frame.Length != Count || p?.Alerts == null || v == null || !(v.SpotterLeft || v.SpotterRight)) return frame;
             var copy = (LedColor[])frame.Clone();
-            return PaintAlerts(copy, p, v, now, false, SpotterTriggers) ? copy : frame;
+            return PaintAlerts(copy, p, v, now, null, SpotterTriggers) ? copy : frame;
         }
 
         /// <summary>The theme's lighting for the rev bar when parked: the first group that isn't off (buttons, usually).</summary>
@@ -999,8 +1007,13 @@ namespace User.FXProRpmSync
                 if (frame[led].R + frame[led].G + frame[led].B == 0) frame[led] = new LedColor(r, g, b, bright);
         }
 
-        private void ApplyLimiter(LedColor[] frame, LimiterLook lim, double now, DashValues v = null)
+        /// <summary>Draws the pit limiter lights; returns which lights it drew (the rev bar, or the whole wheel).</summary>
+        private bool[] ApplyLimiter(LedColor[] frame, LimiterLook lim, double now, DashValues v = null)
         {
+            var drawn = new bool[Count];
+            bool carPattern = lim.Style == LimiterStyle.CarPattern && lim.Pattern != null && lim.Pattern.Count > 0;
+            foreach (var led in lim.WholeWheel && !carPattern ? Enumerable.Range(0, Count) : Model.Leds(LedGroup.Rev))
+                if (led >= 0 && led < Count) drawn[led] = true;
             if (lim.Style == LimiterStyle.CarPattern && lim.Pattern != null && lim.Pattern.Count > 0)
             {
                 // the car's own lights, laid out for the rev bar left to right: at this speed (its speed steps), at this
@@ -1012,7 +1025,7 @@ namespace User.FXProRpmSync
                     var c = Rgb(pattern[Math.Min(pattern.Count - 1, i * pattern.Count / rev.Length)] ?? "#000000");
                     frame[rev[i]] = c.Item1 + c.Item2 + c.Item3 == 0 ? new LedColor(0, 0, 0, 1) : new LedColor(c.Item1, c.Item2, c.Item3, 90);
                 }
-                return;
+                return drawn;
             }
             var cols = lim.Colors != null && lim.Colors.Count > 0 ? lim.Colors : new List<string> { "#0040FF" };
             var a = Rgb(cols[0]);
@@ -1029,6 +1042,7 @@ namespace User.FXProRpmSync
             }
             if (lim.WholeWheel) foreach (var g in Model.Groups) foreach (var seg in Model.Segments(g)) Paint(seg);
             else Paint(Model.Leds(LedGroup.Rev));
+            return drawn;
         }
 
         /// <summary>Each LED's distance from the middle of its segment, 0 (middle) to 1 (an end): the takeovers' shape.</summary>

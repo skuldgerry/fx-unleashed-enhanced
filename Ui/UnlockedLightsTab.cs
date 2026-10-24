@@ -1162,7 +1162,13 @@ namespace User.FXProRpmSync
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 6, 0, 16) });
             groupEditor.Children.Add(HeadingRow(Section("Pit limiter"),
                 HoldPlay(() => CarState.PitLimiter, "Puts the wheel on the pit limiter: these lights, or the car's own if the car being driven has them (the card for this car above).")));
-            groupEditor.Children.Add(Theme.Note("For cars without their own (set in the card for this car above)."));
+            groupEditor.Children.Add(Theme.Note("For cars without their own (set in the card for this car above). To light buttons too while the limiter is on, " +
+                                                "pick them on the \"Pit limiter on\" alert (Alerts, below): it adds them to the car's own limiter lights."));
+            var gameLimiter = Theme.Switch("Use each car's own limiter lights from the game's data", p.UseGameLimiter,
+                v => { if (!loading) { p.UseGameLimiter = v; Changed(); previewState = CarState.PitLimiter; BuildStateChips(); } },
+                "On: a car whose dash has its own pit limiter lights (iRacing) shows those. Off: these lights for every car. Lights saved for a car in its own card above always win.");
+            gameLimiter.Margin = new Thickness(170, 0, 0, 10);
+            groupEditor.Children.Add(gameLimiter);
             if (p.Limiter == null) p.Limiter = new LimiterLook();
             groupEditor.Children.Add(LimiterEditor(p.Limiter, () => { if (!loading) { Changed(); previewState = CarState.PitLimiter; BuildStateChips(); } }));
 
