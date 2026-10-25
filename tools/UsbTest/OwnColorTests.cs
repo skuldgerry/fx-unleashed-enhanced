@@ -67,6 +67,10 @@ static class OwnColorTests
         Check("the first test version's steady still reads as steady", first.Look == LightEffect.Solid);
 
         Levels();
+
+        var alert = new AlertRule { Trigger = AlertTrigger.Custom, Name = "Radio", Note = "The voice button: someone is talking" };
+        var kept = JsonConvert.DeserializeObject<AlertRule>(JsonConvert.SerializeObject(alert.Clone()));
+        FeatureTests.Check("alert: its note is kept in a copy and the settings", kept.Note == alert.Note);
     }
 
     /// <summary>On the encoders' setting levels: dim for a low setting, full for a high one, and the blink after a change.</summary>

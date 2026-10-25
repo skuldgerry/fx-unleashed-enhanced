@@ -172,6 +172,8 @@ namespace User.FXProRpmSync
         public AlertStyle Style = AlertStyle.Flash;
         /// <summary>Custom alerts: the name shown in the list.</summary>
         public string Name;
+        /// <summary>Custom alerts: the person's own note on what it's for ("the voice button: someone is talking").</summary>
+        public string Note;
         /// <summary>
         /// Custom alerts: on while this is true (true, a number other than 0, a text other than "" / "0" / "false").
         /// A SimHub property ("DataCorePlugin.GameData.NewData.CarDamagesMax"), an NCalc formula ("[CarDamagesMax] > 5"),

@@ -155,7 +155,8 @@ static class UiTest
             u.SaverSwitchMinutes = 5; u.SaverRotation.Add("lights-out"); u.SaverRotation.Add("pit-board"); u.SaverId = "clock";
             mine.Rev.Pattern = PatternKind.EdgesToCenter;
             mine.Groups[LedGroup.Encoders] = new GroupLighting { Effect = LightEffect.Levels, Colors = new System.Collections.Generic.List<string> { "#00FF40", "#FFB000", "#FF0020" } };
-            mine.Alerts.Insert(2, new AlertRule { Trigger = AlertTrigger.Custom, Name = "Damage", Condition = "[CarDamagesMax] > 5", Color = "#FF00C0", Groups = { LedGroup.Buttons } });
+            mine.Alerts.Insert(2, new AlertRule { Trigger = AlertTrigger.Custom, Name = "Damage", Condition = "[CarDamagesMax] > 5", Color = "#FF00C0", Groups = { LedGroup.Buttons },
+                                                  Note = "All the buttons light pink when the car is damaged: time to box." });
             u.PressLights = true; u.ButtonLeds[1] = 0; u.ButtonLeds[2] = 6;
             mine.OwnColors.Add(new OwnColor { Leds = { 4, 5 }, Color = "#FF0020" });
             mine.OwnColors.Add(new OwnColor { Leds = { 13 }, Color = "#0060FF", KeepEffect = true });
