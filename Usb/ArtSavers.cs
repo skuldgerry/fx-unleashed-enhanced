@@ -692,66 +692,106 @@ namespace User.FXProRpmSync
     // =====================================================================================================================
 
     /// <summary>
-    /// "Driver number": your number, large and slanted, with your name under it, each in its colour (the Lovely
-    /// Dashboard's idle screen, built in instead of a picture to upload). The art is painted for the number, name and
-    /// colours (cached by them). Its look: flat, or a line under the number with a light running along it (Sweep) or
-    /// breathing (Pulse); the line is a few fills a frame, so the animation costs next to nothing.
+    /// "Driver number": your racing number, large and slanted, and your name, each in its colour and each switched on on
+    /// its own (the Lovely Dashboard's idle screen, built in instead of a picture to upload); with neither, the FX Unleashed
+    /// Enhanced logo. The art is painted for what it shows (cached by it). Its look: steady, or a line under the number (or
+    /// under the name, without a number) with a light running along it (Sweep) or breathing (Pulse): a few fills a frame,
+    /// so the animation costs next to nothing.
+    /// The layout is worked out when the saver is made, not while painting: art from the cache (or from the screen's picture
+    /// memory) isn't painted again, and the animated line must still land where the art has it.
     /// </summary>
     internal sealed class DriverNumberSaver : ArtSaver
     {
-        private const int LineW = 360, LineH = 6, Shades = 6, BandW = 70;
+        private const int LineW = 380, LineH = 8, Shades = 6, BandW = 90;
+        private const string LogoResource = "User.FXProRpmSync.lockup-enhanced.png";
+        private static readonly string[] LogoColours = { "#FF1F2D", "#EEF0F3" };
+
         private readonly DriverCard card;
         private readonly string number, name;
+        private readonly bool logo;
         private readonly string[] pal;
         private readonly int[] ramp;      // the line's shades, dark to the number's colour (RGB565, all in the palette)
-        private int lineX, lineY;
+        private readonly RectangleF numberBox, nameBox;
+        private readonly int lineX, lineY;
         private int lastShade = -1, lastBand = int.MinValue;
 
         public DriverNumberSaver(DriverCard card)
         {
             this.card = card ?? new DriverCard();
-            number = DriverCard.Clean(this.card.Number, 3);
-            if (number.Length == 0) number = "1";
-            name = DriverCard.Clean(this.card.Name, 24);
-            var numberCol = Col(this.card.NumberColor);
-            var nameCol = Col(this.card.NameColor);
+            number = this.card.ShowNumber ? DriverCard.Clean(this.card.Number, 3) : "";
+            name = this.card.ShowName ? DriverCard.Clean(this.card.Name, 24) : "";
+            logo = number.Length == 0 && name.Length == 0;
             // black, shades of each colour for the letters' smooth edges (and the line's breath), and a dark grey
             var list = new List<string> { "#000000", "#1A1C20" };
             var shadeHex = new List<string>();
-            for (int i = 1; i <= Shades; i++) shadeHex.Add(Hex(Scale(numberCol, i / (double)Shades)));
+            for (int i = 1; i <= Shades; i++) shadeHex.Add(Hex(Scale(Col(this.card.NumberColor), i / (double)Shades)));
             list.AddRange(shadeHex);
-            for (int i = 1; i <= 4; i++) list.Add(Hex(Scale(nameCol, i / 4.0)));
+            foreach (var c in logo ? LogoColours : new[] { this.card.NameColor })
+                for (int i = 1; i <= 4; i++) list.Add(Hex(Scale(Col(c), i / 4.0)));
+            if (logo) list.Add("#5A0A0E");
             pal = list.ToArray();
             ramp = shadeHex.Select(C).ToArray();
+
+            // where things go: the number as large as it fits, the line under it, the name under that
+            lineX = (W - LineW) / 2;
+            float below = 0;
+            if (number.Length > 0)
+            {
+                numberBox = name.Length > 0 ? new RectangleF(70, HasLine ? 40 : 56, W - 140, 270) : new RectangleF(70, HasLine ? 56 : 75, W - 140, 310);
+                below = Measure(number, true, numberBox).Bottom;
+            }
+            if (name.Length > 0 && number.Length == 0)
+            {
+                nameBox = new RectangleF(40, HasLine ? 170 : 195, W - 80, 80);
+                below = Measure(name, false, nameBox).Bottom;
+            }
+            lineY = (int)below + 24;
+            if (name.Length > 0 && number.Length > 0)
+            {
+                float top = HasLine ? lineY + LineH + 22 : below + 30;
+                nameBox = new RectangleF(40, top, W - 80, Math.Min(46, H - 16 - top));
+            }
         }
 
         protected override string CacheKey => base.CacheKey + "|" + card.Key;
         protected override string[] Palette => pal;
         protected override double FrameSeconds => 0.05;
 
-        private bool HasLine => card.Look != DriverNumberLook.Flat;
+        private bool HasLine => !logo && card.Look != DriverNumberLook.Flat;
 
         protected override void Paint(Graphics g)
         {
-            bool named = name.Length > 0;
-            // the letters' own outlines, fitted to their space (a font's line box is taller than its digits): the number
-            // as large as it fits, slanted, then the line and the name under it
-            RectangleF drawn;
-            using (var p = Glyphs(number, true))
+            if (logo) { PaintLogo(g); return; }
+            if (number.Length > 0)
+                using (var p = Glyphs(number, true)) { Fit(p, numberBox); using (var b = new SolidBrush(Col(card.NumberColor))) g.FillPath(b, p); }
+            if (HasLine) using (var b = new SolidBrush(Col(pal[3]))) g.FillRectangle(b, lineX, lineY, LineW, LineH);
+            if (name.Length > 0)
+                using (var p = Glyphs(name, false)) { Fit(p, nameBox); using (var b = new SolidBrush(Col(card.NameColor))) g.FillPath(b, p); }
+        }
+
+        /// <summary>Neither number nor name: the FX Unleashed Enhanced logo, still.</summary>
+        private static void PaintLogo(Graphics g)
+        {
+            try
             {
-                drawn = Fit(p, named ? new RectangleF(70, HasLine ? 40 : 56, W - 140, 270) : new RectangleF(70, 70, W - 140, 330));
-                using (var b = new SolidBrush(Col(card.NumberColor))) g.FillPath(b, p);
+                using (var s = typeof(DriverNumberSaver).Assembly.GetManifestResourceStream(LogoResource))
+                using (var img = s == null ? null : Image.FromStream(s))
+                    if (img != null)
+                    {
+                        float w = 700, h = w * img.Height / img.Width;
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.DrawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+                        return;
+                    }
             }
-            lineX = (W - LineW) / 2;
-            lineY = (int)drawn.Bottom + 22;
-            if (HasLine) using (var b = new SolidBrush(Col(pal[2]))) g.FillRectangle(b, lineX, lineY, LineW, LineH);
-            if (named)
-                using (var p = Glyphs(name, false))
-                {
-                    float top = HasLine ? lineY + LineH + 22 : drawn.Bottom + 30;
-                    Fit(p, new RectangleF(40, top, W - 80, Math.Min(46, H - 16 - top)));
-                    using (var b = new SolidBrush(Col(card.NameColor))) g.FillPath(b, p);
-                }
+            catch (Exception) { } // not in this build: the name in letters
+            Text(g, "FX UNLEASHED ENHANCED", Display(48), Col("#EEF0F3"), new RectangleF(0, 0, W, H));
+        }
+
+        /// <summary>Where text fitted into `box` ends up.</summary>
+        private static RectangleF Measure(string text, bool slant, RectangleF box)
+        {
+            using (var p = Glyphs(text, slant)) return Fit(p, box);
         }
 
         /// <summary>Text as outlines in the display font, bold; `slant` leans it like a racing number.</summary>
@@ -789,9 +829,10 @@ namespace User.FXProRpmSync
 
         protected override void Animate(IScreenSink screen, double now)
         {
+            if (!HasLine) return;
             if (card.Look == DriverNumberLook.Pulse)
             {
-                // a breath every 2.5 s, from the dimmest shade to the full colour and back
+                // a breath every 2.5 s, from a dim shade to the full colour and back
                 double t = (Math.Sin(now * 2 * Math.PI / 2.5) + 1) / 2;
                 int shade = (int)Math.Round(t * (ramp.Length - 1));
                 if (shade == lastShade) return;
@@ -800,11 +841,11 @@ namespace User.FXProRpmSync
             }
             else if (card.Look == DriverNumberLook.Sweep)
             {
-                // a bright band crossing the line every 2 s, then a pause; the old band goes back to the line's shade
+                // a bright band crossing the line in 2 s, then a pause; where it was goes back to the line's shade
                 double cycle = now % 3.0;
                 int x = cycle < 2 ? (int)(lineX - BandW + (LineW + BandW) * cycle / 2) : int.MinValue;
                 if (x == lastBand) return;
-                if (lastBand != int.MinValue) Fill(screen, lastBand, ramp[0]);
+                if (lastBand != int.MinValue) Fill(screen, lastBand, ramp[1]);
                 if (x != int.MinValue) Fill(screen, x, ramp[ramp.Length - 1]);
                 lastBand = x;
             }

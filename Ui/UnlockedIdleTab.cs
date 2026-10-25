@@ -156,28 +156,37 @@ namespace User.FXProRpmSync
             var box = new StackPanel();
             box.Children.Add(Theme.Eyebrow("Driver number"));
             box.Children.Add(Theme.Title("Your number and name", 20));
-            box.Children.Add(Theme.Note("A screensaver with your racing number and name, like the Lovely Dashboard's idle screen: pick \"Driver number\" above to show it."));
+            box.Children.Add(Theme.Note("A screensaver with your racing number and your name, like the Lovely Dashboard's idle screen: pick \"Driver number\" above " +
+                                        "to show it. Switch on the number, the name or both; with neither it shows the FX Unleashed Enhanced logo."));
             // typing waits a moment before the gallery and the wheel draw it again (the wheel's first draw takes a few seconds)
             var settle = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
             settle.Tick += (s, e) => { settle.Stop(); Changed(); BuildGallery(); };
             Action later = () => { settle.Stop(); settle.Start(); };
+            Action now = () => { settle.Stop(); Changed(); BuildGallery(); };
 
-            var number = new TextBox { Width = 70, MaxLength = 3, Text = d.Number ?? "", VerticalAlignment = VerticalAlignment.Center };
+            var number = new TextBox { Width = 70, MaxLength = 3, Text = d.Number ?? "", VerticalAlignment = VerticalAlignment.Center, IsEnabled = d.ShowNumber };
             number.TextChanged += (s, e) => { d.Number = number.Text; later(); };
+            var numberColour = new ColourField(d.NumberColor, hex => { d.NumberColor = hex; later(); }) { Margin = new Thickness(10, 0, 0, 0) };
+            var showNumber = Theme.Switch("", d.ShowNumber, v => { d.ShowNumber = v; number.IsEnabled = v; now(); });
+            showNumber.Margin = new Thickness(0, 0, 10, 0); showNumber.VerticalAlignment = VerticalAlignment.Center;
             var numberRow = new StackPanel { Orientation = Orientation.Horizontal };
+            numberRow.Children.Add(showNumber);
             numberRow.Children.Add(number);
-            numberRow.Children.Add(new ColourField(d.NumberColor, hex => { d.NumberColor = hex; later(); }) { Margin = new Thickness(10, 0, 0, 0) });
+            numberRow.Children.Add(numberColour);
             box.Children.Add(Theme.Field("Number", numberRow, 110));
 
-            var name = new TextBox { Width = 240, MaxLength = 24, Text = d.Name ?? "", VerticalAlignment = VerticalAlignment.Center, ToolTip = "Shown in capitals under the number; empty: just the number" };
+            var name = new TextBox { Width = 240, MaxLength = 24, Text = d.Name ?? "", VerticalAlignment = VerticalAlignment.Center, IsEnabled = d.ShowName, ToolTip = "Shown in capitals" };
             name.TextChanged += (s, e) => { d.Name = name.Text; later(); };
+            var showName = Theme.Switch("", d.ShowName, v => { d.ShowName = v; name.IsEnabled = v; now(); });
+            showName.Margin = new Thickness(0, 0, 10, 0); showName.VerticalAlignment = VerticalAlignment.Center;
             var nameRow = new StackPanel { Orientation = Orientation.Horizontal };
+            nameRow.Children.Add(showName);
             nameRow.Children.Add(name);
             nameRow.Children.Add(new ColourField(d.NameColor, hex => { d.NameColor = hex; later(); }) { Margin = new Thickness(10, 0, 0, 0) });
             box.Children.Add(Theme.Field("Name", nameRow, 110));
 
-            var look = new ComboBox { Width = 300 };
-            foreach (var (text, value) in new[] { ("Just the number", DriverNumberLook.Flat), ("A light running along a line under it", DriverNumberLook.Sweep),
+            var look = new ComboBox { Width = 300, ToolTip = "The line goes under the number (under the name without one). The logo shows still." };
+            foreach (var (text, value) in new[] { ("Steady", DriverNumberLook.Flat), ("A light running along a line under it", DriverNumberLook.Sweep),
                                                   ("A line under it, breathing", DriverNumberLook.Pulse) })
                 look.Items.Add(new ComboBoxItem { Content = text, Tag = value });
             look.SelectedItem = look.Items.Cast<ComboBoxItem>().First(i => (DriverNumberLook)i.Tag == d.Look);

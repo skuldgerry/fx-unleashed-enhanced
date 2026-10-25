@@ -88,7 +88,7 @@ namespace User.FXProRpmSync
     [JsonConverter(typeof(StringEnumConverter))]
     public enum DriverNumberLook
     {
-        /// <summary>Just the number and the name.</summary>
+        /// <summary>Steady: the number and the name, nothing moving.</summary>
         Flat,
         /// <summary>A light running along a line under the number.</summary>
         Sweep,
@@ -96,18 +96,23 @@ namespace User.FXProRpmSync
         Pulse,
     }
 
-    /// <summary>What the driver number screensaver shows: a number and a name, each in its colour (the Lovely Dashboard's idle screen, built in).</summary>
+    /// <summary>
+    /// What the driver number screensaver shows: a number and a name, each in its colour and each switched on on its own;
+    /// with neither, the FX Unleashed Enhanced logo (the Lovely Dashboard's idle screen, built in).
+    /// </summary>
     public class DriverCard
     {
+        public bool ShowNumber;
         public string Number = "1";
         public string NumberColor = "#2E86FF";
+        public bool ShowName;
         public string Name = "";
         public string NameColor = "#FFFFFF";
         public DriverNumberLook Look = DriverNumberLook.Flat;
 
         /// <summary>Everything that changes the picture, for caches and for starting it again on the wheel.</summary>
         [JsonIgnore]
-        public string Key => string.Join("|", Clean(Number, 3), NumberColor, Clean(Name, 24), NameColor, Look);
+        public string Key => string.Join("|", ShowNumber ? Clean(Number, 3) : "-", NumberColor, ShowName ? Clean(Name, 24) : "-", NameColor, Look);
 
         /// <summary>The text as shown: trimmed, upper case, at most `max` characters.</summary>
         public static string Clean(string s, int max)

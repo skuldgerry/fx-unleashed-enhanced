@@ -26,6 +26,7 @@
     <Compile Include="..\..\Usb\*.cs" />
     <Compile Include="..\..\Ui\*.cs" />
     <EmbeddedResource Include="..\..\assets\logo-nobg.png" LogicalName="User.FXProRpmSync.logo-nobg.png" />
+    <EmbeddedResource Include="..\..\assets\brand\lockup-enhanced.png" LogicalName="User.FXProRpmSync.lockup-enhanced.png" />
     <EmbeddedResource Include="..\..\assets\fxpro-outline.svg" LogicalName="User.FXProRpmSync.fxpro-outline.svg" />
     <EmbeddedResource Include="..\..\assets\gtneo-outline.svg" LogicalName="User.FXProRpmSync.gtneo-outline.svg" />
     <EmbeddedResource Include="..\..\assets\fx-outline.svg" LogicalName="User.FXProRpmSync.fx-outline.svg" />
