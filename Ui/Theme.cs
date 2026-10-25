@@ -408,11 +408,12 @@ namespace User.FXProRpmSync
     <Setter Property='BorderBrush' Value='{StaticResource Line2}'/>
     <Setter Property='CaretBrush' Value='White'/>
     <Setter Property='Padding' Value='6,4'/>
+    <Setter Property='VerticalContentAlignment' Value='Center'/>
     <Setter Property='Template'>
       <Setter.Value>
         <ControlTemplate TargetType='TextBox'>
           <Border x:Name='b' Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='1' CornerRadius='6'>
-            <ScrollViewer x:Name='PART_ContentHost' Margin='{TemplateBinding Padding}' VerticalAlignment='Center'/>
+            <ScrollViewer x:Name='PART_ContentHost' Margin='{TemplateBinding Padding}' VerticalAlignment='{TemplateBinding VerticalContentAlignment}'/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property='IsKeyboardFocused' Value='True'>

@@ -1308,7 +1308,7 @@ namespace User.FXProRpmSync
             {
                 Text = current ?? "", AcceptsReturn = true, AcceptsTab = true, TextWrapping = TextWrapping.Wrap, Width = 620, Height = 220,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto, FontFamily = new FontFamily("Consolas"), FontSize = 13,
-                VerticalContentAlignment = VerticalAlignment.Top, Padding = new Thickness(8, 6, 8, 6), // the theme centres a box's text
+                VerticalContentAlignment = VerticalAlignment.Stretch, Padding = new Thickness(8, 6, 8, 6), // from the top (the theme centres a box's text)
             };
             var hint = Theme.Note("A SimHub property, a formula as in SimHub's dash studio ([CarDamagesMax] > 5, && for and, || for or), " +
                                   "JavaScript starting with js:, or a dash value. The alert is on while it's true (or a number other than 0).", new Thickness(0, 8, 0, 0));

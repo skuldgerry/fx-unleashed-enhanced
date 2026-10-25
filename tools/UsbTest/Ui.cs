@@ -473,6 +473,29 @@ static class UiTest
         return code;
     }
 
+    /// <summary>A box of several lines in the theme (a custom alert's condition), with text in it: it starts at the top.</summary>
+    public static void RunConditionBox(string dir)
+    {
+        var t = new System.Threading.Thread(() =>
+        {
+            var box = new TextBox
+            {
+                Text = "[A] >= 0 &&\n[B] != [C]", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Width = 400, Height = 160,
+                VerticalContentAlignment = VerticalAlignment.Stretch, Padding = new Thickness(8, 6, 8, 6), FontFamily = new FontFamily("Consolas"), FontSize = 13,
+            };
+            var one = new TextBox { Text = "a usual one-line box", Width = 400, Margin = new Thickness(0, 10, 0, 0) };
+            var panel = new StackPanel { Margin = new Thickness(10) };
+            panel.Children.Add(box); panel.Children.Add(one);
+            var w = new Window { SizeToContent = SizeToContent.WidthAndHeight, Left = -3000, Top = 0, ShowActivated = false, ShowInTaskbar = false, Content = panel, Background = Brushes.Black };
+            Theme.Apply(w);
+            w.Show();
+            SaveElement(panel, Path.Combine(dir, "condition-box.png"));
+            w.Close();
+        });
+        t.SetApartmentState(System.Threading.ApartmentState.STA);
+        t.Start(); t.Join();
+    }
+
     /// <summary>The colour field's palette and picker, as when its swatch is clicked.</summary>
     public static void RunColourPicker(string dir)
     {
