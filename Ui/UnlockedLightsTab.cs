@@ -1298,6 +1298,46 @@ namespace User.FXProRpmSync
             return row;
         }
 
+        /// <summary>
+        /// A custom alert's condition in a box of several lines (to paste and read a long formula). Lines are joined with
+        /// spaces for a property or a formula (they read the same), kept for JavaScript. Null if it was cancelled.
+        /// </summary>
+        private static string EditCondition(Window owner, string current, string alertName)
+        {
+            var box = new TextBox
+            {
+                Text = current ?? "", AcceptsReturn = true, AcceptsTab = true, TextWrapping = TextWrapping.Wrap, Width = 620, Height = 220,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, FontFamily = new FontFamily("Consolas"), FontSize = 13,
+            };
+            var hint = Theme.Note("A SimHub property, a formula as in SimHub's dash studio ([CarDamagesMax] > 5, && for and, || for or), " +
+                                  "JavaScript starting with js:, or a dash value. The alert is on while it's true (or a number other than 0).", new Thickness(0, 8, 0, 0));
+            hint.MaxWidth = 620;
+            string result = null;
+            Window w = null;
+            var buttons = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
+            buttons.Children.Add(Theme.Btn("Save", () =>
+            {
+                var t = box.Text.Trim();
+                result = t.StartsWith("js:", StringComparison.OrdinalIgnoreCase) ? t : System.Text.RegularExpressions.Regex.Replace(t, @"\s*[\r\n]+\s*", " ");
+                w.Close();
+            }, primary: true));
+            buttons.Children.Add(Theme.Btn("Cancel", () => w.Close()));
+            var body = new StackPanel { Margin = new Thickness(20, 16, 20, 16) };
+            body.Children.Add(Theme.Eyebrow("On while · " + (string.IsNullOrWhiteSpace(alertName) ? "custom alert" : alertName)));
+            body.Children.Add(box);
+            body.Children.Add(hint);
+            body.Children.Add(buttons);
+            w = new Window
+            {
+                Title = "The alert's condition", Owner = owner, Content = body, SizeToContent = SizeToContent.WidthAndHeight,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize, Background = Theme.Page, ShowInTaskbar = false,
+            };
+            Theme.Apply(w);
+            w.Loaded += (s, e) => { box.Focus(); box.CaretIndex = box.Text.Length; };
+            w.ShowDialog();
+            return result;
+        }
+
         private readonly List<Action> alertPlays = new List<Action>();
         /// <summary>The alert being tried on the wheel (each alert's play button): shown as if it were on, over the driving lights.</summary>
         private AlertRule triedAlert;
@@ -1431,6 +1471,16 @@ namespace User.FXProRpmSync
                 cond.LostFocus += (s, e) => { var c = cond.Text.Trim(); if (c != (a.Condition ?? "")) { a.Condition = c; Changed(); showHint(); } };
                 custom.Children.Add(new TextBlock { Text = "On while", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(cond);
+                // a long formula is easier to paste and read in a bigger box
+                var big = Small("", () =>
+                {
+                    var edited = EditCondition(Window.GetWindow(this), a.Condition ?? cond.Text, LightPresets.AlertName(a));
+                    if (edited == null || edited == (a.Condition ?? "")) return;
+                    a.Condition = edited; cond.Text = edited;
+                    Changed(); showHint();
+                }, "Edit it in a bigger box (several lines, to paste a long formula)");
+                big.Margin = new Thickness(4, 0, 0, 0);
+                custom.Children.Add(big);
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 var hold = new TextBox { Width = 52, Text = a.HoldSeconds.ToString("0.##", inv), TextAlignment = TextAlignment.Right,
                                          ToolTip = "Seconds the alert stays on after it was last true (0 = only while it is true; up to 60).\n" +
