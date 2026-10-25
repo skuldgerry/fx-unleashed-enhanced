@@ -926,6 +926,13 @@ namespace User.FXProRpmSync
             groupEditor.Children.Add(drivingNote);
             groupEditor.Children.Add(details);
             fill();
+            // single buttons' and encoders' lights with a colour of their own while driving (the same list under both)
+            if (group == LedGroup.Buttons || group == LedGroup.Encoders)
+            {
+                ownList = new StackPanel();
+                groupEditor.Children.Add(Theme.Field("Own colours", ownList));
+                BuildOwnColors(p);
+            }
 
             // Global brightness + alerts
             groupEditor.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 10, 0, 16) });
@@ -1204,6 +1211,75 @@ namespace User.FXProRpmSync
             Extra("Brake bias change", "After you change the bias, a pointer shows how far it moved from where it started.", p.Extras.BrakeBias, v => p.Extras.BrakeBias = v, "brake-bias");
             Extra("Launch aid", "Standing start in first gear: a pointer for revs (or throttle, or clutch) against this car's target, set in the launch card above. Amber below it, green on it, red above.",
                 p.Extras.Launch, v => p.Extras.Launch = v, "launch");
+        }
+
+        private StackPanel ownList;
+        private static readonly LedGroup[] OwnColorGroups = { LedGroup.Buttons, LedGroup.Encoders };
+
+        /// <summary>The buttons' and encoders' lights with a colour of their own (LightProfile.OwnColors) on this wheel, a row each.</summary>
+        private void BuildOwnColors(LightProfile p)
+        {
+            bool was = loading;
+            loading = true;
+            ownList.Children.Clear();
+            if (p.OwnColors == null) p.OwnColors = new List<OwnColor>();
+            foreach (var o in p.OwnColors.Where(o => o != null && string.Equals(o.Wheel ?? WheelModel.FxPro.Id, model.Id, StringComparison.OrdinalIgnoreCase)).ToList())
+                ownList.Children.Add(OwnColorRow(p, o));
+            var add = Theme.Btn("Choose lights…", () =>
+            {
+                var o = new OwnColor { Wheel = model.Id, Color = "#FF0000" };
+                var leds = LightPicker.Pick(Window.GetWindow(this), plugin, OwnColorGroups, null, o.Color, "Lights with a colour of their own");
+                if (leds == null || leds.Count == 0) return;
+                o.Leds = leds;
+                p.OwnColors.Add(o);
+                Changed(); BuildOwnColors(p);
+            }, icon: "");
+            add.HorizontalAlignment = HorizontalAlignment.Left;
+            ownList.Children.Add(add);
+            ownList.Children.Add(Theme.Note("While you drive, these buttons' and encoders' lights keep a colour of their own over the effect above: the TC encoder " +
+                                            "always blue, the pit limiter button always red. Steady, or the effect itself in shades of that colour. Alerts and the pit " +
+                                            "limiter still show over them.", new Thickness(0, 6, 0, 0)));
+            loading = was;
+        }
+
+        private FrameworkElement OwnColorRow(LightProfile p, OwnColor o)
+        {
+            var row = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
+            // its lights, picked on a drawing of the wheel (as an alert's single buttons)
+            var pickGlyph = new TextBlock { Text = "", FontFamily = Theme.Icons, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Foreground = Theme.Text };
+            var pickCount = new TextBlock { FontSize = 11, FontWeight = FontWeights.SemiBold, Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Foreground = Theme.Text };
+            var pickBody = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            pickBody.Children.Add(pickGlyph);
+            pickBody.Children.Add(pickCount);
+            var pick = new Button { Content = pickBody, MinWidth = 40, Height = 26, Padding = new Thickness(6, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+            Action count = () =>
+            {
+                int n = o.Leds?.Count ?? 0;
+                pickCount.Text = n == 1 ? "1 light" : n + " lights";
+                pick.ToolTip = "Click to choose these lights on the wheel (click them, or press their buttons).";
+            };
+            count();
+            pick.Click += (s, e) =>
+            {
+                var chosen = LightPicker.Pick(Window.GetWindow(this), plugin, OwnColorGroups, o.Leds, o.Color, "Lights in this colour");
+                if (chosen == null) return;
+                if (chosen.Count == 0) { p.OwnColors.Remove(o); Changed(); BuildOwnColors(p); return; }
+                if (!chosen.SequenceEqual(o.Leds ?? new List<int>())) { o.Leds = chosen; Changed(); }
+                count();
+            };
+            row.Children.Add(pick);
+            row.Children.Add(new ColourField(o.Color, hex => { o.Color = hex; Changed(); }) { Margin = new Thickness(8, 0, 8, 0) });
+            var how = new ComboBox { Width = 190, VerticalAlignment = VerticalAlignment.Center,
+                                     ToolTip = "Steady: just this colour. The effect in this colour: the group's effect keeps its movement and brightness (a plasma, a breath, a blink), in shades of this colour." };
+            how.Items.Add(new ComboBoxItem { Content = "Steady", Tag = false });
+            how.Items.Add(new ComboBoxItem { Content = "The effect, in this colour", Tag = true });
+            how.SelectedIndex = o.KeepEffect ? 1 : 0;
+            how.SelectionChanged += (s, e) => { if (!loading && how.SelectedItem is ComboBoxItem i) { o.KeepEffect = (bool)i.Tag; Changed(); } };
+            row.Children.Add(how);
+            var remove = Small("", () => { p.OwnColors.Remove(o); Changed(); BuildOwnColors(p); }, "Remove: these lights show the effect again");
+            remove.Margin = new Thickness(6, 0, 0, 0);
+            row.Children.Add(remove);
+            return row;
         }
 
         private readonly List<Action> alertPlays = new List<Action>();

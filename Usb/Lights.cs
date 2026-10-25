@@ -292,6 +292,8 @@ namespace User.FXProRpmSync
         public bool UseGameLimiter = true;
         /// <summary>What the rev bar shows instead of the shift lights in some situations (pit lane, refuelling, LMU lift and coast, a brake bias change, a launch).</summary>
         public RevExtrasOptions Extras = new RevExtrasOptions();
+        /// <summary>Buttons' and encoders' lights with a colour of their own while driving (OwnColor); the first that has a light wins it.</summary>
+        public List<OwnColor> OwnColors = new List<OwnColor>();
 
         public StateLook LookFor(CarState s) => Looks != null && Looks.TryGetValue(s, out var l) && l != null ? l : StateLook.Default(s);
 
@@ -361,8 +363,26 @@ namespace User.FXProRpmSync
             c.Looks = (Looks ?? new Dictionary<CarState, StateLook>()).ToDictionary(k => k.Key, k => k.Value?.Clone());
             c.Limiter = (Limiter ?? new LimiterLook()).Clone();
             c.Extras = (Extras ?? new RevExtrasOptions()).Clone();
+            c.OwnColors = (OwnColors ?? new List<OwnColor>()).Where(o => o != null).Select(o => o.Clone()).ToList();
             return c;
         }
+    }
+
+    /// <summary>
+    /// Some of the buttons' or encoders' lights in a colour of their own while driving (the TC encoder always blue, the pit
+    /// limiter button always red, easy to find): steady, or the group's effect in shades of that colour. Drawn over the
+    /// group's effect, under the pit limiter, the rev bar's extras, the start-up and the alerts.
+    /// </summary>
+    public class OwnColor
+    {
+        /// <summary>The wheel the lights are numbered for (WheelModel.Id): on another wheel the same numbers are other lights.</summary>
+        public string Wheel = "fxpro";
+        public List<int> Leds = new List<int>();
+        public string Color = "#FF0000";
+        /// <summary>The group's effect in shades of Color, its movement and brightness kept (a plasma, a breath, a blink); false = steady.</summary>
+        public bool KeepEffect;
+
+        public OwnColor Clone() { var c = (OwnColor)MemberwiseClone(); c.Leds = new List<int>(Leds ?? new List<int>()); return c; }
     }
 
     public static class LightPresets
@@ -807,6 +827,9 @@ namespace User.FXProRpmSync
                 }
             }
 
+            // Lights with a colour of their own (buttons, encoders) while in the car: over the group's effect, under the rest
+            if (driving && p.OwnColors != null && p.OwnColors.Count > 0) ApplyOwnColors(frame, p, max);
+
             // The pit limiter: this car's own lights, else the preset's
             var limiter = m?.CarLimiter ?? p.Limiter;
             bool limiterOn = state == CarState.PitLimiter && limiter != null && limiter.Style != LimiterStyle.None;
@@ -939,6 +962,46 @@ namespace User.FXProRpmSync
             if (frame == null || frame.Length != Count || p?.Alerts == null || v == null || !(v.SpotterLeft || v.SpotterRight)) return frame;
             var copy = (LedColor[])frame.Clone();
             return PaintAlerts(copy, p, v, now, null, SpotterTriggers) ? copy : frame;
+        }
+
+        /// <summary>
+        /// The profile's lights with a colour of their own (OwnColor), on the buttons and encoders only. Steady: the colour at
+        /// the group's brightness. Keeping the effect: the colour scaled by how bright the effect is at that light, as a share
+        /// of the brightest of the group's colours, so a plasma ripples, a breath fades and a blink blinks in that one colour.
+        /// </summary>
+        private void ApplyOwnColors(LedColor[] frame, LightProfile p, byte max)
+        {
+            var done = new bool[Count];
+            foreach (var o in p.OwnColors)
+            {
+                if (o?.Leds == null || !string.Equals(o.Wheel ?? WheelModel.FxPro.Id, Model.Id, StringComparison.OrdinalIgnoreCase)) continue;
+                var (r, g, b) = Rgb(o.Color);
+                foreach (var led in o.Leds)
+                {
+                    if (led < 0 || led >= Count || done[led]) continue;
+                    var group = Model.GroupOf(led);
+                    if (group != LedGroup.Buttons && group != LedGroup.Encoders) continue;
+                    done[led] = true;
+                    var l = p.Group(group.Value);
+                    double k = o.KeepEffect ? Math.Min(1, Luma(frame[led]) / PaletteLuma(l)) : 1;
+                    frame[led] = k < 0.01 ? new LedColor(0, 0, 0, 1) : new LedColor((byte)(r * k), (byte)(g * k), (byte)(b * k), Bright(max, l, 1));
+                }
+            }
+        }
+
+        private static double Luma(LedColor c) => 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B;
+
+        /// <summary>How bright the group's effect gets at most: its brightest colour (every hue for the rainbows).</summary>
+        private static double PaletteLuma(GroupLighting l)
+        {
+            if (l.Effect == LightEffect.Rainbow || l.Effect == LightEffect.RainbowBreathe) return 0.2126 * 255 + 0.7152 * 255; // yellow
+            double most = 0;
+            foreach (var c in l.Colors ?? new List<string>())
+            {
+                var (r, g, b) = Rgb(c);
+                most = Math.Max(most, 0.2126 * r + 0.7152 * g + 0.0722 * b);
+            }
+            return most > 8 ? most : 255;
         }
 
         /// <summary>The theme's lighting for the rev bar when parked: the first group that isn't off (buttons, usually).</summary>
