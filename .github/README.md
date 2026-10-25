@@ -9,10 +9,10 @@
 </p>
 
 > [!IMPORTANT]
-> **Use the original FX Unleashed first.** It is ziadkadry99's work, and the project to use, follow and support:
+> **Use the original FX Unleashed.** It is ziadkadry99's work, and the project to use and support:
 > [fxunleashed/fx-unleashed](https://github.com/fxunleashed/fx-unleashed) and [fxunleashed.com](https://fxunleashed.com).
-> This edition only fills a few gaps I ran into on my own setup. It is shared in case it helps someone else, not for any
-> gain, and changes that suit the original may be offered to it as pull requests.
+> This edition is just my own changes for my own use case; I decided to make it public in case someone finds them
+> helpful. My dashes and my lights profile are in [fx-unleashed-dashes](https://github.com/skuldgerry/fx-unleashed-dashes).
 
 > **An independent community project.** FX Unleashed Enhanced is a modified version of FX Unleashed by ziadkadry99. It
 > is not made or supported by the FX Unleashed project, and neither is affiliated with, endorsed by or supported by
@@ -32,8 +32,8 @@ listed in [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
 
 ## [Dashes and tools](https://github.com/skuldgerry/fx-unleashed-dashes)
 
-Dashes for the FX Pro's screen made alongside this edition: replicas of iRacing GT3 displays and a default dash based on
-the Lovely Dashboard, with the tools used to make, check and measure them.
+My dashes for the FX Pro's screen (replicas of iRacing GT3 displays and a default dash based on the Lovely Dashboard),
+my lights profile, and the tools used to make, check and measure them.
 
 ## What's added
 
