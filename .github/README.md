@@ -68,7 +68,7 @@ iRacing, `DataCorePlugin.GameRawData.Telemetry.dcHeadlightFlash` is true for onl
 **Stays on: 2.5 s** the button lights for the whole flash. Another: two buttons blinking while the pit limiter is on (a
 custom alert on `pitLimiter`, with those two buttons picked).
 
-<!-- animation: ../docs/enhanced/flash.gif -->
+![The headlight button lights up for the whole flash in iRacing](../docs/enhanced/flash.gif)
 
 The FX Pro comes with its **usual button map**, so a button's light works without mapping the buttons first (map them
 yourself if one lights the wrong light). The Button lights card now says what the map is for, separately from the colour
