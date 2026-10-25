@@ -473,6 +473,21 @@ static class UiTest
         return code;
     }
 
+    /// <summary>The colour field's palette and picker, as when its swatch is clicked.</summary>
+    public static void RunColourPicker(string dir)
+    {
+        var t = new System.Threading.Thread(() =>
+        {
+            var panel = new ColourField("#2E86FF", _ => { }).Panel("#2E86FF");
+            var w = new Window { SizeToContent = SizeToContent.WidthAndHeight, Left = -3000, Top = 0, ShowActivated = false, ShowInTaskbar = false, Content = panel, Background = Brushes.Black };
+            w.Show();
+            SaveElement(panel, Path.Combine(dir, "colour-picker.png"));
+            w.Close();
+        });
+        t.SetApartmentState(System.Threading.ApartmentState.STA);
+        t.Start(); t.Join();
+    }
+
     private static void SaveElement(FrameworkElement e, string file)
     {
         e.UpdateLayout();

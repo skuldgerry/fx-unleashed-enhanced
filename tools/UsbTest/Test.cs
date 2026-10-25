@@ -178,6 +178,7 @@ static class UsbTestMain
             return 0;
         }
         if (args.Length > 1 && args[1] == "features") return FeatureTests.Run(dir);
+        if (args.Length > 1 && args[1] == "colour") { UiTest.RunColourPicker(dir); return 0; }
         if (args.Length > 3 && args[1] == "release")
         {
             // a release made by release.ps1, checked exactly as the updater checks a download: UsbTest OUT release ZIP MANIFEST
