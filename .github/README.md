@@ -32,8 +32,8 @@ listed in [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
 
 ## [Dashes and tools](https://github.com/skuldgerry/fx-unleashed-dashes)
 
-My dashes for the FX Pro's screen (replicas of iRacing GT3 displays and a default dash based on the Lovely Dashboard),
-my lights profile, and the tools used to make, check and measure them.
+My dashes for the FX Pro's screen (replicas of iRacing GT3 displays and a default dash based on the Lovely Dashboard)
+and my lights profile, ready to import into the plugin.
 
 ## What's added
 
@@ -79,13 +79,11 @@ of "Light a button while it's pressed".
 ### Measured shift lights
 
 FX Unleashed 0.7.6 reads iRacing cars' shift lights from the sim's files, but it keeps only each light's first colour:
-on the BMW M4 GT3 the red and the two white dots never show. For the cars measured in the sim, this edition uses its own
-data first:
+on the BMW M4 GT3 the red and the two white dots never show. For these cars, this edition uses the lights as they are in
+the sim:
 
-- **BMW M4 GT3**: per gear, five green together, five light blue, all red, then two white dots in the middle (measured
-  over a lap of the Nordschleife, 8460 frames);
-- **McLaren 720S GT3**: the lights up to all blue, then red and blue on every other light one step later in every gear
-  (measured from 2674 frames of the car's dash).
+- **BMW M4 GT3**: per gear, five green together, five light blue, all red, then two white dots in the middle;
+- **McLaren 720S GT3**: the lights up to all blue, then red and blue on every other light one step later in every gear.
 
 The game's own pit limiter lights are kept. Any car can also get **stages past the shift point** in Car tuning: the whole
 bar in one colour, two colours on every other light, or only the middle lights, steady or blinking.
@@ -105,7 +103,7 @@ bar in one colour, two colours on every other light, or only the middle lights, 
 **About > Backup**: export your lights, alerts, dashes per car, car tuning, buttons and options to one file, with your
 dash and screensaver files in a zip if you like, and import them on this PC or another. What belongs to one PC and one wheel
 (firmware and screen state, presets captured from SimPro, where updates come from) is never exported or imported. An
-import is checked whole and applied the next time SimHub starts, after a copy of your current settings is kept.
+import is applied the next time SimHub starts, after a copy of your current settings is kept.
 
 ![About > Backup: export and import settings](../docs/enhanced/backup.png)
 
@@ -123,11 +121,6 @@ start, so an official update doesn't replace this edition by surprise.
 **Going back to the official plugin:** install its DLL the same way, and in About > More set "Releases from" back to
 `fxunleashed/fx-unleashed`. Your settings load there too; it ignores what it doesn't know (single-button alerts and their
 hold time are dropped the next time it saves). Export a backup first.
-
-## Building
-
-As for FX Unleashed: `dotnet build -c Release -p:DeployToSimHub=false` with SimHub installed (it references SimHub's
-DLLs), then `tools/UsbTest` for the offline checks. See the [original README](../README.md#build-test-release).
 
 ## License and credits
 
