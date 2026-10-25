@@ -1,10 +1,18 @@
-<h1 align="center">FX Unleashed Enhanced</h1>
+<p align="center">
+  <img src="../assets/brand/lockup-enhanced.png" alt="FX Unleashed Enhanced" width="460">
+</p>
 
 <p align="center">
   An enhanced edition of <a href="https://github.com/fxunleashed/fx-unleashed"><b>FX Unleashed</b></a>, the free SimHub
   plugin for the Simagic FX Pro, GT Neo and FX: more ways to see your lights on the wheel while you set them up, alerts on
   single buttons, measured shift lights for some iRacing cars, and a backup of your settings.
 </p>
+
+> [!IMPORTANT]
+> **Use the original FX Unleashed first.** It is ziadkadry99's work, and the project to use, follow and support:
+> [fxunleashed/fx-unleashed](https://github.com/fxunleashed/fx-unleashed) and [fxunleashed.com](https://fxunleashed.com).
+> This edition only fills a few gaps I ran into on my own setup. It is shared in case it helps someone else, not for any
+> gain, and changes that suit the original may be offered to it as pull requests.
 
 > **An independent community project.** FX Unleashed Enhanced is a modified version of FX Unleashed by ziadkadry99. It
 > is not made or supported by the FX Unleashed project, and neither is affiliated with, endorsed by or supported by
@@ -16,18 +24,16 @@
 All the real work behind this plugin is **[FX Unleashed](https://github.com/fxunleashed/fx-unleashed)** by
 **ziadkadry99** and its contributors: the plugin itself, Unleashed mode and its custom firmware, the dash format and
 designer, the library, the lights engine and everything else. Its website is **[fxunleashed.com](https://fxunleashed.com)**.
-This edition follows each FX Unleashed release (currently **0.7.6**) and adds the changes below on top; if you don't need
-them, use the original.
+This edition follows each FX Unleashed release (currently **0.7.6**) and adds the changes below on top.
 
 For setup, the custom firmware, dashes, the library and everything not listed here, the original documentation applies:
 its **[README](../README.md)**, its **[setup guide](../docs/setup.md)** and its website. Every change of this edition is
 listed in [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
 
-## Dashes and tools
+## [Dashes and tools](https://github.com/skuldgerry/fx-unleashed-dashes)
 
-Dashes for the FX Pro's screen made alongside this edition (replicas of iRacing GT3 displays, a default dash based on
-the Lovely Dashboard) and the tools used to make, check and measure them are in their own repository:
-**[skuldgerry/fx-unleashed-dashes](https://github.com/skuldgerry/fx-unleashed-dashes)**.
+Dashes for the FX Pro's screen made alongside this edition: replicas of iRacing GT3 displays and a default dash based on
+the Lovely Dashboard, with the tools used to make, check and measure them.
 
 ## What's added
 
@@ -126,7 +132,7 @@ DLLs), then `tools/UsbTest` for the offline checks. See the [original README](..
 ## License and credits
 
 - **[FX Unleashed](https://github.com/fxunleashed/fx-unleashed)** by ziadkadry99 and contributors, GPL-3.0 or later.
-  **This edition** by Rafael Gomes ([skuldgerry](https://github.com/skuldgerry)), under the same licence: see
+  **This edition** by [skuldgerry](https://github.com/skuldgerry), under the same licence: see
   [LICENSE](../LICENSE), [NOTICE](../NOTICE) and [CHANGES-ENHANCED.md](../CHANGES-ENHANCED.md).
 - Car rev light data, dashes and other credits: as listed in the [NOTICE](../NOTICE).
 - No Simagic software is in this repository or its releases. The custom firmware for Unleashed mode is FX Unleashed's,

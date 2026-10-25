@@ -91,7 +91,7 @@ namespace User.FXProRpmSync
                 "The LMGT3 Ford Mustang GT3, LMGT3 McLaren 720S GT3 and Toyota GR010 Hybrid dashes are converted for the FX Pro screen from the SimHub dashes of the same names by Redadeg, from lmu-dashboards.com (https://lmu-dashboards.com).",
                 "ATSR-Hub EVO by ATSR-Alex: the FX Pro layout file for it is generated from ATSR-Hub's GSI FPE-V2 device preset.",
                 "SimHub by Wotever: the host for everything here, and the source of every game's data.",
-                "FX Unleashed Enhanced is a modified version of FX Unleashed by ziadkadry99 (github.com/fxunleashed/fx-unleashed), changed by Rafael Gomes (github.com/skuldgerry), GPL-3.0 or later.",
+                "FX Unleashed Enhanced is a modified version of FX Unleashed by ziadkadry99 (github.com/fxunleashed/fx-unleashed), changed by skuldgerry (github.com/skuldgerry), GPL-3.0 or later.",
             })
                 credits.Children.Add(Theme.Note("•  " + c, new Thickness(0, 0, 0, 4)));
             about.Children.Add(credits);

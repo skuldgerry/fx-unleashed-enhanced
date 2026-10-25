@@ -1,7 +1,7 @@
 # FX Unleashed Enhanced: what is changed
 
 A modified version of [FX Unleashed](https://github.com/fxunleashed/fx-unleashed) by ziadkadry99, kept in step with its
-releases. Changed by Rafael Gomes ([skuldgerry](https://github.com/skuldgerry)) from 2026-10-12 on, under the same licence
+releases. Changed by [skuldgerry](https://github.com/skuldgerry) from 2026-10-12 on, under the same licence
 (GPL-3.0 or later, see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The DLL (`User.FXProRpmSync.dll`) and the plugin class keep
 their names, so SimHub keeps its activation and control bindings; only the name it shows changes.
 
