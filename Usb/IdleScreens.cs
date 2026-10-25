@@ -80,6 +80,43 @@ namespace User.FXProRpmSync
         [JsonIgnore] public bool IsOversized => IsAnimation && Frames < FramesTotal && (MemoryLimited ?? true);
         /// <summary>For the gallery.</summary>
         [JsonIgnore] public string Blurb;
+        /// <summary>The driver number screensaver: what it shows (a copy of UsbSettings.Driver when the list was made).</summary>
+        [JsonIgnore] public DriverCard Driver;
+    }
+
+    /// <summary>How the driver number screensaver shows the number.</summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum DriverNumberLook
+    {
+        /// <summary>Just the number and the name.</summary>
+        Flat,
+        /// <summary>A light running along a line under the number.</summary>
+        Sweep,
+        /// <summary>A line under the number breathing.</summary>
+        Pulse,
+    }
+
+    /// <summary>What the driver number screensaver shows: a number and a name, each in its colour (the Lovely Dashboard's idle screen, built in).</summary>
+    public class DriverCard
+    {
+        public string Number = "1";
+        public string NumberColor = "#2E86FF";
+        public string Name = "";
+        public string NameColor = "#FFFFFF";
+        public DriverNumberLook Look = DriverNumberLook.Flat;
+
+        /// <summary>Everything that changes the picture, for caches and for starting it again on the wheel.</summary>
+        [JsonIgnore]
+        public string Key => string.Join("|", Clean(Number, 3), NumberColor, Clean(Name, 24), NameColor, Look);
+
+        /// <summary>The text as shown: trimmed, upper case, at most `max` characters.</summary>
+        public static string Clean(string s, int max)
+        {
+            var t = (s ?? "").Trim().ToUpperInvariant();
+            return t.Length > max ? t.Substring(0, max) : t;
+        }
+
+        public DriverCard Clone() => (DriverCard)MemberwiseClone();
     }
 
     /// <summary>The last session driven, for the pit board screensaver (kept in the settings).</summary>
@@ -111,9 +148,18 @@ namespace User.FXProRpmSync
             (new SaverItem { Id = "chequered", Name = "Chequered", Kind = SaverKind.Builtin, Blurb = "The waving flag and the time" }, null),
         };
 
+        public const string DriverNumberId = "driver-number";
+
+        /// <summary>The driver number screensaver, showing these settings' number and name.</summary>
+        public static SaverItem DriverNumber(UsbSettings s) => new SaverItem
+        {
+            Id = DriverNumberId, Name = "Driver number", Kind = SaverKind.Builtin, Blurb = "Your number and name (set them below)",
+            Driver = (s?.Driver ?? new DriverCard()).Clone(),
+        };
+
         /// <summary>The built-in screensavers, then the user's.</summary>
         public static List<SaverItem> All(UsbSettings s) =>
-            new[] { Logo, Clock }.Concat(builtins.Select(b => b.Item)).Concat(s.Savers ?? new List<SaverItem>()).ToList();
+            new[] { Logo, Clock }.Concat(builtins.Select(b => b.Item)).Concat(new[] { DriverNumber(s) }).Concat(s.Savers ?? new List<SaverItem>()).ToList();
 
         public static SaverItem Find(UsbSettings s, string id) => All(s).FirstOrDefault(x => x.Id == id) ?? Logo;
 
@@ -153,6 +199,7 @@ namespace User.FXProRpmSync
                 case "rev-sweep": return new TachoSaver();
                 case "pit-board": return new PitBoardSaver(last);
                 case "chequered": return new ChequeredSaver();
+                case DriverNumberId: return new DriverNumberSaver(item.Driver ?? new DriverCard());
                 default: return null;
             }
         }

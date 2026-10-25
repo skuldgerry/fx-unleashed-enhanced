@@ -114,6 +114,8 @@ namespace User.FXProRpmSync
         /// <summary>Screensavers to take turns with the default (ids), every SaverSwitchMinutes (0 = just the default).</summary>
         public List<string> SaverRotation = new List<string>();
         public int SaverSwitchMinutes = 0;
+        /// <summary>The driver number screensaver's number, name, their colours and look.</summary>
+        public DriverCard Driver = new DriverCard();
 
         /// <summary>The screensavers taking turns, the default first (just the default without a rotation).</summary>
         public List<string> SaverCycle()
@@ -1262,7 +1264,7 @@ namespace User.FXProRpmSync
                 SaverShown = item.Id;
                 // with the RAM drive flag, like a dash's key: switching picture memory on (the screen check) starts the saver
                 // again through PrepareSaverTiles, which loads its pictures and the whole rotation behind the loading screen
-                key = $"saver|{item.Id}|{s.PadLeft}|{s.PadTop}|{reloads}|{(s.ScreenRamDrive ? "ram" : "")}";
+                key = $"saver|{item.Id}|{s.PadLeft}|{s.PadTop}|{reloads}|{(s.ScreenRamDrive ? "ram" : "")}" + (item.Driver != null ? "|" + item.Driver.Key : ""); // a new number or name starts it again
             }
 
             WheelPage = source && key == null ? (wantPage ?? "") : null;

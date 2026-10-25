@@ -92,6 +92,8 @@ namespace User.FXProRpmSync
             saver.Children.Add(add);
             var saverCard = Theme.CardBox(saver);
             Children.Add(saverCard);
+            var driverCard = Theme.CardBox(DriverEditor());
+            Children.Add(driverCard);
 
             var online = new StackPanel();
             online.Children.Add(Theme.Eyebrow("Screensaver library"));
@@ -101,7 +103,7 @@ namespace User.FXProRpmSync
             var onlineCard = Theme.CardBox(online);
             Children.Add(onlineCard);
             bool hasScreen = plugin.ActiveModel.HasScreen;
-            if (!hasScreen) saverCard.Visibility = onlineCard.Visibility = Visibility.Collapsed; // screensavers need a screen
+            if (!hasScreen) saverCard.Visibility = driverCard.Visibility = onlineCard.Visibility = Visibility.Collapsed; // screensavers need a screen
 
             // ----- Sleep -----
             var sleep = new StackPanel();
@@ -144,6 +146,44 @@ namespace User.FXProRpmSync
         {
             Usb?.SettingsChanged();
             plugin.SaveSettings();
+        }
+
+        /// <summary>The driver number screensaver's number, name, their colours and look; "Driver number" in the gallery shows it.</summary>
+        private FrameworkElement DriverEditor()
+        {
+            if (S.Driver == null) S.Driver = new DriverCard();
+            var d = S.Driver;
+            var box = new StackPanel();
+            box.Children.Add(Theme.Eyebrow("Driver number"));
+            box.Children.Add(Theme.Title("Your number and name", 20));
+            box.Children.Add(Theme.Note("A screensaver with your racing number and name, like the Lovely Dashboard's idle screen: pick \"Driver number\" above to show it."));
+            // typing waits a moment before the gallery and the wheel draw it again (the wheel's first draw takes a few seconds)
+            var settle = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+            settle.Tick += (s, e) => { settle.Stop(); Changed(); BuildGallery(); };
+            Action later = () => { settle.Stop(); settle.Start(); };
+
+            var number = new TextBox { Width = 70, MaxLength = 3, Text = d.Number ?? "", VerticalAlignment = VerticalAlignment.Center };
+            number.TextChanged += (s, e) => { d.Number = number.Text; later(); };
+            var numberRow = new StackPanel { Orientation = Orientation.Horizontal };
+            numberRow.Children.Add(number);
+            numberRow.Children.Add(new ColourField(d.NumberColor, hex => { d.NumberColor = hex; later(); }) { Margin = new Thickness(10, 0, 0, 0) });
+            box.Children.Add(Theme.Field("Number", numberRow, 110));
+
+            var name = new TextBox { Width = 240, MaxLength = 24, Text = d.Name ?? "", VerticalAlignment = VerticalAlignment.Center, ToolTip = "Shown in capitals under the number; empty: just the number" };
+            name.TextChanged += (s, e) => { d.Name = name.Text; later(); };
+            var nameRow = new StackPanel { Orientation = Orientation.Horizontal };
+            nameRow.Children.Add(name);
+            nameRow.Children.Add(new ColourField(d.NameColor, hex => { d.NameColor = hex; later(); }) { Margin = new Thickness(10, 0, 0, 0) });
+            box.Children.Add(Theme.Field("Name", nameRow, 110));
+
+            var look = new ComboBox { Width = 300 };
+            foreach (var (text, value) in new[] { ("Just the number", DriverNumberLook.Flat), ("A light running along a line under it", DriverNumberLook.Sweep),
+                                                  ("A line under it, breathing", DriverNumberLook.Pulse) })
+                look.Items.Add(new ComboBoxItem { Content = text, Tag = value });
+            look.SelectedItem = look.Items.Cast<ComboBoxItem>().First(i => (DriverNumberLook)i.Tag == d.Look);
+            look.SelectionChanged += (s, e) => { if (look.SelectedItem is ComboBoxItem i) { d.Look = (DriverNumberLook)i.Tag; Changed(); BuildGallery(); } };
+            box.Children.Add(Theme.Field("Look", look, 110));
+            return box;
         }
 
         private void Refresh()

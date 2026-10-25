@@ -40,7 +40,7 @@ namespace User.FXProRpmSync
         private static string StillKey(DashDefinition d, bool ram) => Key(d) + (ram ? "|ram" : "");
 
         private static string SaverKey(SaverItem item, bool ram) =>
-            "saver|" + item.Id + "|" + (item.Kind == SaverKind.Clock ? DateTime.Now.ToString("HH:mm") : "") + (ram ? "|ram" : "");
+            "saver|" + item.Id + "|" + (item.Kind == SaverKind.Clock ? DateTime.Now.ToString("HH:mm") : "") + (ram ? "|ram" : "") + (item.Driver != null ? "|" + item.Driver.Key : "");
 
         // ---- pictures for galleries, drawn off the UI thread (two at a time, below normal priority) ----
 

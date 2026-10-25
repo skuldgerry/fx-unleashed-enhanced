@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Globalization;
+using System.Linq;
 
 namespace User.FXProRpmSync
 {
@@ -22,7 +23,10 @@ namespace User.FXProRpmSync
         /// fills and panel texts match it), drawn in one go instead of thousands of rectangles.</summary>
         public bool UseTiles { get; set; }
 
-        private static readonly Dictionary<Type, ScreenTiles> tileCache = new Dictionary<Type, ScreenTiles>();
+        private static readonly Dictionary<string, ScreenTiles> tileCache = new Dictionary<string, ScreenTiles>();
+
+        /// <summary>What the art is cached by: the saver's type, plus whatever changes its picture (a driver's number).</summary>
+        protected virtual string CacheKey => GetType().FullName;
 
         public ScreenTiles Tiles
         {
@@ -30,7 +34,8 @@ namespace User.FXProRpmSync
             {
                 lock (tileCache)
                 {
-                    if (tileCache.TryGetValue(GetType(), out var hit)) return hit;
+                    if (tileCache.TryGetValue(CacheKey, out var hit)) return hit;
+                    if (tileCache.Count > 24) tileCache.Clear(); // pictures of numbers since changed
                     var px = Render();
                     using (var bmp = new Bitmap(W, H, PixelFormat.Format32bppArgb))
                     {
@@ -39,13 +44,13 @@ namespace User.FXProRpmSync
                         var data = bmp.LockBits(new Rectangle(0, 0, W, H), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
                         System.Runtime.InteropServices.Marshal.Copy(argb, 0, data.Scan0, argb.Length);
                         bmp.UnlockBits(data);
-                        return tileCache[GetType()] = SaverTiles.FromBitmap(bmp);
+                        return tileCache[CacheKey] = SaverTiles.FromBitmap(bmp);
                     }
                 }
             }
         }
 
-        private static readonly Dictionary<Type, List<string>> artCache = new Dictionary<Type, List<string>>();
+        private static readonly Dictionary<string, List<string>> artCache = new Dictionary<string, List<string>>();
         private readonly Queue<string> pending = new Queue<string>();
         private double lastAnim = double.NegativeInfinity;
 
@@ -100,11 +105,12 @@ namespace User.FXProRpmSync
         {
             lock (artCache)
             {
-                if (artCache.TryGetValue(GetType(), out var hit)) return hit;
+                if (artCache.TryGetValue(CacheKey, out var hit)) return hit;
+                if (artCache.Count > 24) artCache.Clear();
                 var cmds = new List<string>();
                 foreach (var r in DashRenderer.MergeRects(Render(), W, new Rectangle(0, 0, W, H)))
                     if (r[4] != 0) cmds.Add(F("fill {0},{1},{2},{3},{4}", r[0], r[1], r[2], r[3], r[4]));
-                return artCache[GetType()] = cmds;
+                return artCache[CacheKey] = cmds;
             }
         }
 
@@ -681,5 +687,137 @@ namespace User.FXProRpmSync
         }
 
         protected override double FrameSeconds => 0.5;
+    }
+
+    // =====================================================================================================================
+
+    /// <summary>
+    /// "Driver number": your number, large and slanted, with your name under it, each in its colour (the Lovely
+    /// Dashboard's idle screen, built in instead of a picture to upload). The art is painted for the number, name and
+    /// colours (cached by them). Its look: flat, or a line under the number with a light running along it (Sweep) or
+    /// breathing (Pulse); the line is a few fills a frame, so the animation costs next to nothing.
+    /// </summary>
+    internal sealed class DriverNumberSaver : ArtSaver
+    {
+        private const int LineW = 360, LineH = 6, Shades = 6, BandW = 70;
+        private readonly DriverCard card;
+        private readonly string number, name;
+        private readonly string[] pal;
+        private readonly int[] ramp;      // the line's shades, dark to the number's colour (RGB565, all in the palette)
+        private int lineX, lineY;
+        private int lastShade = -1, lastBand = int.MinValue;
+
+        public DriverNumberSaver(DriverCard card)
+        {
+            this.card = card ?? new DriverCard();
+            number = DriverCard.Clean(this.card.Number, 3);
+            if (number.Length == 0) number = "1";
+            name = DriverCard.Clean(this.card.Name, 24);
+            var numberCol = Col(this.card.NumberColor);
+            var nameCol = Col(this.card.NameColor);
+            // black, shades of each colour for the letters' smooth edges (and the line's breath), and a dark grey
+            var list = new List<string> { "#000000", "#1A1C20" };
+            var shadeHex = new List<string>();
+            for (int i = 1; i <= Shades; i++) shadeHex.Add(Hex(Scale(numberCol, i / (double)Shades)));
+            list.AddRange(shadeHex);
+            for (int i = 1; i <= 4; i++) list.Add(Hex(Scale(nameCol, i / 4.0)));
+            pal = list.ToArray();
+            ramp = shadeHex.Select(C).ToArray();
+        }
+
+        protected override string CacheKey => base.CacheKey + "|" + card.Key;
+        protected override string[] Palette => pal;
+        protected override double FrameSeconds => 0.05;
+
+        private bool HasLine => card.Look != DriverNumberLook.Flat;
+
+        protected override void Paint(Graphics g)
+        {
+            bool named = name.Length > 0;
+            // the letters' own outlines, fitted to their space (a font's line box is taller than its digits): the number
+            // as large as it fits, slanted, then the line and the name under it
+            RectangleF drawn;
+            using (var p = Glyphs(number, true))
+            {
+                drawn = Fit(p, named ? new RectangleF(70, HasLine ? 40 : 56, W - 140, 270) : new RectangleF(70, 70, W - 140, 330));
+                using (var b = new SolidBrush(Col(card.NumberColor))) g.FillPath(b, p);
+            }
+            lineX = (W - LineW) / 2;
+            lineY = (int)drawn.Bottom + 22;
+            if (HasLine) using (var b = new SolidBrush(Col(pal[2]))) g.FillRectangle(b, lineX, lineY, LineW, LineH);
+            if (named)
+                using (var p = Glyphs(name, false))
+                {
+                    float top = HasLine ? lineY + LineH + 22 : drawn.Bottom + 30;
+                    Fit(p, new RectangleF(40, top, W - 80, Math.Min(46, H - 16 - top)));
+                    using (var b = new SolidBrush(Col(card.NameColor))) g.FillPath(b, p);
+                }
+        }
+
+        /// <summary>Text as outlines in the display font, bold; `slant` leans it like a racing number.</summary>
+        private static GraphicsPath Glyphs(string text, bool slant)
+        {
+            // winding: a variable font's letters are made of overlapping outlines, which the alternate rule would leave as holes
+            var p = new GraphicsPath(FillMode.Winding);
+            FontFamily family;
+            try { family = new FontFamily("Bahnschrift"); } catch (ArgumentException) { family = new FontFamily("Segoe UI"); }
+            using (family) p.AddString(text, family, (int)FontStyle.Bold, 100, new PointF(0, 0), StringFormat.GenericTypographic);
+            if (slant) using (var m = new Matrix(1, 0, -0.22f, 1, 0, 0)) p.Transform(m);
+            return p;
+        }
+
+        /// <summary>Scales and centres the outlines into `box` (as large as fits, its proportions kept); where they ended up.</summary>
+        private static RectangleF Fit(GraphicsPath p, RectangleF box)
+        {
+            var b = p.GetBounds();
+            if (b.Width <= 0 || b.Height <= 0) return box;
+            float k = Math.Min(box.Width / b.Width, box.Height / b.Height);
+            using (var m = new Matrix())
+            {
+                m.Translate(-b.X, -b.Y, MatrixOrder.Append);
+                m.Scale(k, k, MatrixOrder.Append);
+                m.Translate(box.X + (box.Width - b.Width * k) / 2, box.Y + (box.Height - b.Height * k) / 2, MatrixOrder.Append);
+                p.Transform(m);
+            }
+            return p.GetBounds();
+        }
+
+        // the line is drawn on rows of its own: no row stepping there, so its fills meet the art exactly
+        protected override int RowStep(int y) => 1;
+
+        protected override void Reset() { lastShade = -1; lastBand = int.MinValue; }
+
+        protected override void Animate(IScreenSink screen, double now)
+        {
+            if (card.Look == DriverNumberLook.Pulse)
+            {
+                // a breath every 2.5 s, from the dimmest shade to the full colour and back
+                double t = (Math.Sin(now * 2 * Math.PI / 2.5) + 1) / 2;
+                int shade = (int)Math.Round(t * (ramp.Length - 1));
+                if (shade == lastShade) return;
+                lastShade = shade;
+                screen.Cmd(F("fill {0},{1},{2},{3},{4}", lineX, lineY, LineW, LineH, ramp[shade]));
+            }
+            else if (card.Look == DriverNumberLook.Sweep)
+            {
+                // a bright band crossing the line every 2 s, then a pause; the old band goes back to the line's shade
+                double cycle = now % 3.0;
+                int x = cycle < 2 ? (int)(lineX - BandW + (LineW + BandW) * cycle / 2) : int.MinValue;
+                if (x == lastBand) return;
+                if (lastBand != int.MinValue) Fill(screen, lastBand, ramp[0]);
+                if (x != int.MinValue) Fill(screen, x, ramp[ramp.Length - 1]);
+                lastBand = x;
+            }
+        }
+
+        /// <summary>The band at `x`, cut to the line.</summary>
+        private void Fill(IScreenSink screen, int x, int colour)
+        {
+            int from = Math.Max(lineX, x), to = Math.Min(lineX + LineW, x + BandW);
+            if (to > from) screen.Cmd(F("fill {0},{1},{2},{3},{4}", from, lineY, to - from, LineH, colour));
+        }
+
+        private static Color Scale(Color c, double k) => Color.FromArgb((int)(c.R * k), (int)(c.G * k), (int)(c.B * k));
+        private static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
     }
 }
