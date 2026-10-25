@@ -42,14 +42,14 @@ An info mark next to each one says what you should see.
 - Each **rev bar extra** (pit speed, refuelling, brake bias, launch aid...), the **encoder levels** and **every alert in
   turn** play their scripted scenario.
 
-<!-- screenshot: ../docs/enhanced/play-buttons.png -->
+![The lights editor: "Your lights" with its play button and links, and a section with play and info](../docs/enhanced/play-buttons.png)
 
 ### Try any alert
 
 Each alert has its own play button: the wheel shows it as if its moment had come, over the driving lights, and follows its
 colour, lights, rhythm and style as you change them. No need to wait for a blue flag to see what it looks like.
 
-<!-- screenshot: ../docs/enhanced/alerts.png -->
+![The alerts list with a play button on each alert, the button picker open, and a custom alert that stays on](../docs/enhanced/alerts.png)
 
 ### Alerts on single buttons
 
@@ -68,7 +68,7 @@ The FX Pro comes with its **usual button map**, so a button's light works withou
 yourself if one lights the wrong light). The Button lights card now says what the map is for, separately from the colour
 of "Light a button while it's pressed".
 
-<!-- screenshot: ../docs/enhanced/button-lights.png -->
+![The Button lights card](../docs/enhanced/button-lights.png)
 
 ### Measured shift lights
 
@@ -101,7 +101,7 @@ dash and screensaver files in a zip if you like, and import them on this PC or a
 (firmware and screen state, presets captured from SimPro, where updates come from) is never exported or imported. An
 import is checked whole and applied the next time SimHub starts, after a copy of your current settings is kept.
 
-<!-- screenshot: ../docs/enhanced/backup.png -->
+![About > Backup: export and import settings](../docs/enhanced/backup.png)
 
 ## Install
 
