@@ -1214,21 +1214,25 @@ namespace User.FXProRpmSync
         }
 
         private StackPanel ownList;
-        private static readonly LedGroup[] OwnColorGroups = { LedGroup.Buttons, LedGroup.Encoders };
 
-        /// <summary>The buttons' and encoders' lights with a colour of their own (LightProfile.OwnColors) on this wheel, a row each.</summary>
+        /// <summary>
+        /// This part's lights with a colour of their own (LightProfile.OwnColors) on this wheel, a row each: the buttons' under
+        /// Buttons, the encoders' under Encoders (a row belongs where its first light is).
+        /// </summary>
         private void BuildOwnColors(LightProfile p)
         {
             bool was = loading;
             loading = true;
             ownList.Children.Clear();
             if (p.OwnColors == null) p.OwnColors = new List<OwnColor>();
-            foreach (var o in p.OwnColors.Where(o => o != null && string.Equals(o.Wheel ?? WheelModel.FxPro.Id, model.Id, StringComparison.OrdinalIgnoreCase)).ToList())
-                ownList.Children.Add(OwnColorRow(p, o));
+            var zone = group;
+            foreach (var o in p.OwnColors.Where(o => o?.Leds != null && o.Leds.Count > 0 && model.GroupOf(o.Leds[0]) == zone &&
+                                                     string.Equals(o.Wheel ?? WheelModel.FxPro.Id, model.Id, StringComparison.OrdinalIgnoreCase)).ToList())
+                ownList.Children.Add(OwnColorRow(p, o, zone));
             var add = Theme.Btn("Choose lights…", () =>
             {
                 var o = new OwnColor { Wheel = model.Id, Color = "#FF0000" };
-                var leds = LightPicker.Pick(Window.GetWindow(this), plugin, OwnColorGroups, null, o.Color, "Lights with a colour of their own");
+                var leds = LightPicker.Pick(Window.GetWindow(this), plugin, new[] { zone }, null, o.Color, GroupName(zone) + ": lights with a colour of their own");
                 if (leds == null || leds.Count == 0) return;
                 o.Leds = leds;
                 p.OwnColors.Add(o);
@@ -1236,13 +1240,18 @@ namespace User.FXProRpmSync
             }, icon: "");
             add.HorizontalAlignment = HorizontalAlignment.Left;
             ownList.Children.Add(add);
-            ownList.Children.Add(Theme.Note("While you drive, these buttons' and encoders' lights keep a colour of their own over the effect above: the TC encoder " +
-                                            "always blue, the pit limiter button always red. Steady, or the effect itself in shades of that colour. Alerts and the pit " +
-                                            "limiter still show over them.", new Thickness(0, 6, 0, 0)));
+            ownList.Children.Add(Theme.Note(zone == LedGroup.Encoders
+                ? "While you drive, these encoders keep a colour of their own: the TC encoder always blue. With \"Show each setting's level\" on, " +
+                  "the group's effect in that colour is dim for a low setting and full for a high one, and a change still blinks them, whatever their effect."
+                : "While you drive, these buttons keep a colour of their own: the pit limiter button always red, easy to find. The group's effect in " +
+                  "that colour, or an effect of their own. Alerts and the pit limiter still show over them.", new Thickness(0, 6, 0, 0)));
             loading = was;
         }
 
-        private FrameworkElement OwnColorRow(LightProfile p, OwnColor o)
+        /// <summary>What a row of lights with their own colour can do: the group's effect in that colour (null), or one of these.</summary>
+        private static readonly LightEffect?[] OwnLooks = { null, LightEffect.Solid, LightEffect.Breathe, LightEffect.Heartbeat, LightEffect.Strobe, LightEffect.Sparkle, LightEffect.Twinkle };
+
+        private FrameworkElement OwnColorRow(LightProfile p, OwnColor o, LedGroup zone)
         {
             var row = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
             // its lights, picked on a drawing of the wheel (as an alert's single buttons)
@@ -1261,7 +1270,7 @@ namespace User.FXProRpmSync
             count();
             pick.Click += (s, e) =>
             {
-                var chosen = LightPicker.Pick(Window.GetWindow(this), plugin, OwnColorGroups, o.Leds, o.Color, "Lights in this colour");
+                var chosen = LightPicker.Pick(Window.GetWindow(this), plugin, new[] { zone }, o.Leds, o.Color, GroupName(zone) + ": lights in this colour");
                 if (chosen == null) return;
                 if (chosen.Count == 0) { p.OwnColors.Remove(o); Changed(); BuildOwnColors(p); return; }
                 if (!chosen.SequenceEqual(o.Leds ?? new List<int>())) { o.Leds = chosen; Changed(); }
@@ -1269,12 +1278,19 @@ namespace User.FXProRpmSync
             };
             row.Children.Add(pick);
             row.Children.Add(new ColourField(o.Color, hex => { o.Color = hex; Changed(); }) { Margin = new Thickness(8, 0, 8, 0) });
-            var how = new ComboBox { Width = 190, VerticalAlignment = VerticalAlignment.Center,
-                                     ToolTip = "Steady: just this colour. The effect in this colour: the group's effect keeps its movement and brightness (a plasma, a breath, a blink), in shades of this colour." };
-            how.Items.Add(new ComboBoxItem { Content = "Steady", Tag = false });
-            how.Items.Add(new ComboBoxItem { Content = "The effect, in this colour", Tag = true });
-            how.SelectedIndex = o.KeepEffect ? 1 : 0;
-            how.SelectionChanged += (s, e) => { if (!loading && how.SelectedItem is ComboBoxItem i) { o.KeepEffect = (bool)i.Tag; Changed(); } };
+            var how = new ComboBox { Width = 210, VerticalAlignment = VerticalAlignment.Center,
+                                     ToolTip = "The group's effect in this colour: it keeps its movement and brightness (a plasma, a breath, a blink; on the encoders' levels, " +
+                                               "dim low and full high) in shades of this colour. Or an effect of their own, in this colour." };
+            foreach (var look in OwnLooks)
+                how.Items.Add(new ComboBoxItem { Content = look == null ? "The group's effect, in this colour" : look == LightEffect.Solid ? "Steady" : EffectName(look.Value), Tag = look });
+            how.SelectedItem = how.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (LightEffect?)i.Tag == o.Look) ?? how.Items[0];
+            how.SelectionChanged += (s, e) =>
+            {
+                if (loading || !(how.SelectedItem is ComboBoxItem i)) return;
+                o.Effect = (LightEffect?)i.Tag;
+                o.KeepEffect = o.Effect == null;
+                Changed();
+            };
             row.Children.Add(how);
             var remove = Small("", () => { p.OwnColors.Remove(o); Changed(); BuildOwnColors(p); }, "Remove: these lights show the effect again");
             remove.Margin = new Thickness(6, 0, 0, 0);

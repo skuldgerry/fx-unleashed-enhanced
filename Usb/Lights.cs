@@ -379,8 +379,14 @@ namespace User.FXProRpmSync
         public string Wheel = "fxpro";
         public List<int> Leds = new List<int>();
         public string Color = "#FF0000";
-        /// <summary>The group's effect in shades of Color, its movement and brightness kept (a plasma, a breath, a blink); false = steady.</summary>
-        public bool KeepEffect;
+        /// <summary>An effect of their own in Color (Solid = steady); null = the group's effect in shades of Color (see KeepEffect).</summary>
+        public LightEffect? Effect;
+        /// <summary>Before Effect: the group's effect in shades of Color (true), or steady (false). Read when Effect is null.</summary>
+        public bool KeepEffect = true;
+
+        /// <summary>What these lights do: their own effect, or null for the group's effect in their colour.</summary>
+        [JsonIgnore]
+        public LightEffect? Look => Effect ?? (KeepEffect ? (LightEffect?)null : LightEffect.Solid);
 
         public OwnColor Clone() { var c = (OwnColor)MemberwiseClone(); c.Leds = new List<int>(Leds ?? new List<int>()); return c; }
     }
@@ -755,6 +761,9 @@ namespace User.FXProRpmSync
         {
             Model = model ?? WheelModel.FxPro;
             sparkle = new double[Model.LedCount];
+            levelShare = new double[Model.LedCount];
+            levelBlink = new double[Model.LedCount];
+            levelFrame = Enumerable.Repeat(-1L, Model.LedCount).ToArray();
         }
 
         /// <param name="carLayout">The car's rev lights in real RPM (null = use the profile's colours).</param>
@@ -768,6 +777,7 @@ namespace User.FXProRpmSync
         /// </summary>
         public LedColor[] Render(LightProfile p, DashValues v, RpmLayout carLayout, double now, bool reverseRev, LightMoment m)
         {
+            frameNo++;
             var state = m?.State ?? CarState.Driving;
             bool parked = state == CarState.Idle || state == CarState.Menu || state == CarState.EngineOff;
             var look = parked ? p.LookFor(state) : null;
@@ -828,7 +838,7 @@ namespace User.FXProRpmSync
             }
 
             // Lights with a colour of their own (buttons, encoders) while in the car: over the group's effect, under the rest
-            if (driving && p.OwnColors != null && p.OwnColors.Count > 0) ApplyOwnColors(frame, p, max);
+            if (driving && p.OwnColors != null && p.OwnColors.Count > 0) ApplyOwnColors(frame, p, max, now);
 
             // The pit limiter: this car's own lights, else the preset's
             var limiter = m?.CarLimiter ?? p.Limiter;
@@ -965,29 +975,48 @@ namespace User.FXProRpmSync
         }
 
         /// <summary>
-        /// The profile's lights with a colour of their own (OwnColor), on the buttons and encoders only. Steady: the colour at
-        /// the group's brightness. Keeping the effect: the colour scaled by how bright the effect is at that light, as a share
-        /// of the brightest of the group's colours, so a plasma ripples, a breath fades and a blink blinks in that one colour.
+        /// The profile's lights with a colour of their own (OwnColor), on the buttons and encoders only. The group's effect
+        /// in that colour: scaled by how bright the effect is at that light, as a share of the brightest of the group's
+        /// colours, so a plasma ripples, a breath fades and a blink blinks in that one colour; on the encoders' setting
+        /// levels, dim for a low setting and full for a high one. An effect of their own: that effect in that colour
+        /// (held still while driving like the group's, with "Hold still"). An encoder's blink when its setting changes
+        /// shows whatever they do.
         /// </summary>
-        private void ApplyOwnColors(LedColor[] frame, LightProfile p, byte max)
+        private void ApplyOwnColors(LedColor[] frame, LightProfile p, byte max, double now)
         {
             var done = new bool[Count];
             foreach (var o in p.OwnColors)
             {
                 if (o?.Leds == null || !string.Equals(o.Wheel ?? WheelModel.FxPro.Id, Model.Id, StringComparison.OrdinalIgnoreCase)) continue;
                 var (r, g, b) = Rgb(o.Color);
-                foreach (var led in o.Leds)
+                var mine = o.Leds.Where(led => led >= 0 && led < Count && !done[led] && (Model.GroupOf(led) == LedGroup.Buttons || Model.GroupOf(led) == LedGroup.Encoders)).ToList();
+                for (int i = 0; i < mine.Count; i++)
                 {
-                    if (led < 0 || led >= Count || done[led]) continue;
-                    var group = Model.GroupOf(led);
-                    if (group != LedGroup.Buttons && group != LedGroup.Encoders) continue;
+                    int led = mine[i];
                     done[led] = true;
-                    var l = p.Group(group.Value);
-                    double k = o.KeepEffect ? Math.Min(1, Luma(frame[led]) / PaletteLuma(l)) : 1;
-                    frame[led] = k < 0.01 ? new LedColor(0, 0, 0, 1) : new LedColor((byte)(r * k), (byte)(g * k), (byte)(b * k), Bright(max, l, 1));
+                    var l = p.Group(Model.GroupOf(led).Value);
+                    byte bright = Bright(max, l, 1);
+                    bool level = levelFrame[led] == frameNo; // the encoders' setting levels drew this light this frame
+                    var look = o.Look;
+                    if (look == null)
+                    {
+                        double k = level ? levelShare[led] * levelBlink[led] : Math.Min(1, Luma(frame[led]) / PaletteLuma(l));
+                        frame[led] = k < 0.01 ? new LedColor(0, 0, 0, 1) : new LedColor((byte)(r * k), (byte)(g * k), (byte)(b * k), bright);
+                        continue;
+                    }
+                    var own = new GroupLighting { Effect = look.Value, Colors = new List<string> { o.Color }, Period = l.Period > 0 ? l.Period : 2 };
+                    if (p.StillWhileDriving) own = Still(own);
+                    var c = Ambient(own, i, mine.Count, led, p.StillWhileDriving ? StillTime(own) : now, bright);
+                    frame[led] = level ? Scaled(c, levelBlink[led]) : c;
                 }
             }
         }
+
+        // what the encoders' setting levels drew at each light, for lights with a colour of their own: the setting as a
+        // share (dim low, full high), the blink after a change, and the frame they were drawn in
+        private long frameNo;
+        private readonly double[] levelShare, levelBlink;
+        private readonly long[] levelFrame;
 
         private static double Luma(LedColor c) => 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B;
 
@@ -1285,11 +1314,15 @@ namespace User.FXProRpmSync
                     if (lastLevel[i].HasValue && x.HasValue) levelChanged[i] = now;
                     lastLevel[i] = x;
                 }
-                if (!x.HasValue || (x.Value <= 0 && key != "brakeBias")) { frame[leds[i]] = Scale(Rgb(colours[0]), 0.08, bright); continue; }
+                int at = leds[i];
+                levelFrame[at] = frameNo;
+                if (!x.HasValue || (x.Value <= 0 && key != "brakeBias")) { frame[at] = Scale(Rgb(colours[0]), 0.08, bright); levelShare[at] = 0.08; levelBlink[at] = 1; continue; }
                 double t = Math.Max(0, Math.Min(1, (x.Value - low) / (high - low)));
                 var c = colours.Count == 1 ? Rgb(colours[0]) : Ramp(colours, t);
                 bool blink = l.FlashOnChange && now - levelChanged[i] < 1 && (int)((now - levelChanged[i]) * 16) % 2 == 1;
-                frame[leds[i]] = Scale(c, blink ? 0.1 : 1, bright);
+                frame[at] = Scale(c, blink ? 0.1 : 1, bright);
+                levelShare[at] = 0.25 + 0.75 * t; // a light with its own colour: a low setting dim, a high one full
+                levelBlink[at] = blink ? 0.1 : 1;
             }
         }
 
