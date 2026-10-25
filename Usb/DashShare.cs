@@ -42,6 +42,60 @@ namespace User.FXProRpmSync
 
         public static string FileName(string id) => (Slug(id) ?? "dash") + Extension;
 
+        /// <summary>Most dash files taken from one zip.</summary>
+        public const int MaxZipEntries = 200;
+
+        public static bool IsZip(string path) => path != null && path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The dash files in a zip (a pack of dashes), written into <paramref name="folder"/> to be imported one by one like
+        /// any dash file. Only <c>.json</c> files are taken, each under its own name (never the path it has in the zip),
+        /// within the dash size limit; what is left out goes into <paramref name="refused"/> with why. Nothing is installed here.
+        /// </summary>
+        public static List<string> Unzip(string zipPath, string folder, List<string> refused)
+        {
+            var taken = new List<string>();
+            string zipName = Path.GetFileName(zipPath);
+            Directory.CreateDirectory(folder);
+            try
+            {
+                using (var z = System.IO.Compression.ZipFile.OpenRead(zipPath))
+                {
+                    foreach (var e in z.Entries)
+                    {
+                        if (e.FullName.EndsWith("/") || e.FullName.EndsWith("\\")) continue;
+                        string name = Path.GetFileName(e.FullName.Replace('\\', '/').Split('/').Last());
+                        if (!name.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;   // pictures, readmes: not dashes
+                        string shown = zipName + " › " + name;
+                        if (taken.Count >= MaxZipEntries) { refused.Add(shown + ": more dash files than one zip may bring (" + MaxZipEntries + ")"); continue; }
+                        if (name.Length > 120 || name.StartsWith(".") || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) { refused.Add(shown + ": not a usable file name"); continue; }
+                        if (e.Length > LibraryClient.MaxDashBytes) { refused.Add(shown + $": too big ({(e.Length + 1023) / 1024} KB; the limit is {LibraryClient.MaxDashBytes / 1024} KB)"); continue; }
+                        // two files of the same name in different folders of the zip: the second gets a number
+                        string target = Path.Combine(folder, name);
+                        for (int n = 2; File.Exists(target); n++) target = Path.Combine(folder, Path.GetFileNameWithoutExtension(name) + "-" + n + ".json");
+                        using (var from = e.Open())
+                        using (var to = File.Create(target))
+                        {
+                            // the size the zip claims isn't trusted: stop at the limit whatever it says
+                            var buffer = new byte[81920]; long total = 0; int read;
+                            while ((read = from.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                total += read;
+                                if (total > LibraryClient.MaxDashBytes) break;
+                                to.Write(buffer, 0, read);
+                            }
+                            if (total > LibraryClient.MaxDashBytes) { to.Dispose(); File.Delete(target); refused.Add(shown + ": too big"); continue; }
+                        }
+                        taken.Add(target);
+                    }
+                }
+                if (taken.Count == 0 && !refused.Any(r => r.StartsWith(zipName + " › "))) refused.Add(zipName + ": no dash files in it");
+            }
+            catch (InvalidDataException) { refused.Add(zipName + ": can't be read (damaged, or not a zip)"); }
+            catch (IOException ex) { refused.Add(zipName + ": " + ex.Message); }
+            return taken;
+        }
+
         /// <summary>
         /// Reads a dash file and checks it with the library's rules. Throws with a reason a person can act on.
         /// Nothing is written.

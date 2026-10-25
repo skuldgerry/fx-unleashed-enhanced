@@ -28,7 +28,8 @@ namespace User.FXProRpmSync
     {
         private const string Title = "FX Unleashed";
 
-        public static bool IsDashFile(string path) => path != null && path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+        /// <summary>A dash file, or a zip of them (a pack).</summary>
+        public static bool IsDashFile(string path) => path != null && (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || DashShare.IsZip(path));
 
         /// <summary>Asks for files with a picker, then <see cref="Import(Window, FXProRpmSyncPlugin, IEnumerable{string})"/>.</summary>
         public static List<DashShare.Imported> ImportWithPicker(Window owner, FXProRpmSyncPlugin plugin)
@@ -36,7 +37,7 @@ namespace User.FXProRpmSync
             var dlg = new OpenFileDialog
             {
                 Title = "Import a dash file",
-                Filter = "Dash files (*.fxdash.json;*.json)|*.fxdash.json;*.json|All files|*.*",
+                Filter = "Dash files and packs (*.fxdash.json;*.json;*.zip)|*.fxdash.json;*.json;*.zip|All files|*.*",
                 Multiselect = true,
                 CheckFileExists = true,
             };
@@ -44,15 +45,29 @@ namespace User.FXProRpmSync
         }
 
         /// <summary>
-        /// Imports dash files after the terms notice (once). Shows what was added and what was refused and why. The caller
-        /// reloads the dashes when the result is not empty.
+        /// Imports dash files after the terms notice (once); a zip brings the dash files in it (DashShare.Unzip), each
+        /// checked like a file of its own. Shows what was added and what was refused and why. The caller reloads the
+        /// dashes when the result is not empty.
         /// </summary>
         public static List<DashShare.Imported> Import(Window owner, FXProRpmSyncPlugin plugin, IEnumerable<string> files)
         {
-            var done = new List<DashShare.Imported>();
             var refused = new List<string>();
-            var list = files.ToList();
-            if (list.Count == 0) return done;
+            var list = new List<string>();
+            string unpacked = null;
+            foreach (var f in files)
+            {
+                if (!DashShare.IsZip(f)) { list.Add(f); continue; }
+                unpacked = unpacked ?? Path.Combine(Path.GetTempPath(), "fx-unleashed-import-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+                list.AddRange(DashShare.Unzip(f, Path.Combine(unpacked, list.Count.ToString()), refused));
+            }
+            try { return Import(owner, plugin, list, refused); }
+            finally { if (unpacked != null) try { Directory.Delete(unpacked, true); } catch (Exception) { } }
+        }
+
+        private static List<DashShare.Imported> Import(Window owner, FXProRpmSyncPlugin plugin, List<string> list, List<string> refused)
+        {
+            var done = new List<DashShare.Imported>();
+            if (list.Count == 0 && refused.Count == 0) return done;
 
             // read first: refusals need no question, and the notice can name the dash
             var readable = new List<string>();
