@@ -1299,11 +1299,10 @@ namespace User.FXProRpmSync
         }
 
         /// <summary>
-        /// A custom alert's condition in a box of several lines (to paste and read a long formula), and the person's note on
-        /// what it's for. Lines are joined with spaces for a property or a formula (they read the same), kept for JavaScript.
-        /// Null if it was cancelled.
+        /// A custom alert's condition in a box of several lines (to paste and read a long formula). Lines are joined with
+        /// spaces for a property or a formula (they read the same), kept for JavaScript. Null if it was cancelled.
         /// </summary>
-        private static (string Condition, string Note)? EditCondition(Window owner, string current, string currentNote, string alertName)
+        private static string EditCondition(Window owner, string current, string alertName)
         {
             var box = new TextBox
             {
@@ -1314,19 +1313,13 @@ namespace User.FXProRpmSync
             var hint = Theme.Note("A SimHub property, a formula as in SimHub's dash studio ([CarDamagesMax] > 5, && for and, || for or), " +
                                   "JavaScript starting with js:, or a dash value. The alert is on while it's true (or a number other than 0).", new Thickness(0, 8, 0, 0));
             hint.MaxWidth = 620;
-            var note = new TextBox
-            {
-                Text = currentNote ?? "", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Width = 620, Height = 58,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalContentAlignment = VerticalAlignment.Stretch, Padding = new Thickness(8, 6, 8, 6),
-                ToolTip = "Shown under the alert in the list, and on its name",
-            };
-            (string, string)? result = null;
+            string result = null;
             Window w = null;
             var buttons = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
             buttons.Children.Add(Theme.Btn("Save", () =>
             {
                 var t = box.Text.Trim();
-                result = (t.StartsWith("js:", StringComparison.OrdinalIgnoreCase) ? t : System.Text.RegularExpressions.Regex.Replace(t, @"\s*[\r\n]+\s*", " "), note.Text.Trim());
+                result = t.StartsWith("js:", StringComparison.OrdinalIgnoreCase) ? t : System.Text.RegularExpressions.Regex.Replace(t, @"\s*[\r\n]+\s*", " ");
                 w.Close();
             }, primary: true));
             buttons.Children.Add(Theme.Btn("Cancel", () => w.Close()));
@@ -1334,8 +1327,6 @@ namespace User.FXProRpmSync
             body.Children.Add(Theme.Eyebrow("On while · " + (string.IsNullOrWhiteSpace(alertName) ? "custom alert" : alertName)));
             body.Children.Add(box);
             body.Children.Add(hint);
-            body.Children.Add(Theme.Eyebrow("Note: what it's for"));
-            body.Children.Add(note);
             body.Children.Add(buttons);
             w = new Window
             {
@@ -1481,25 +1472,14 @@ namespace User.FXProRpmSync
                 cond.LostFocus += (s, e) => { var c = cond.Text.Trim(); if (c != (a.Condition ?? "")) { a.Condition = c; Changed(); showHint(); } };
                 custom.Children.Add(new TextBlock { Text = "On while", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(cond);
-                // the note on what it's for: under the row, and on its name
-                var note = new TextBlock { Foreground = Theme.Text2, FontSize = 12, FontStyle = FontStyles.Italic, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(62, 4, 0, 0) };
-                Action showNote = () =>
-                {
-                    note.Text = a.Note ?? "";
-                    note.Visibility = string.IsNullOrWhiteSpace(a.Note) ? Visibility.Collapsed : Visibility.Visible;
-                    on.ToolTip = string.IsNullOrWhiteSpace(a.Note) ? null : a.Note;
-                };
-                // a long formula is easier to paste and read in a bigger box, with the note beside it
+                // a long formula is easier to paste and read in a bigger box
                 var big = Small("", () =>
                 {
-                    var edited = EditCondition(Window.GetWindow(this), a.Condition ?? cond.Text, a.Note, LightPresets.AlertName(a));
-                    if (edited == null) return;
-                    var (c, n) = edited.Value;
-                    if (c == (a.Condition ?? "") && n == (a.Note ?? "")) return;
-                    a.Condition = c; cond.Text = c;
-                    a.Note = n.Length > 0 ? n : null;
-                    Changed(); showHint(); showNote();
-                }, "Edit it in a bigger box (several lines, to paste a long formula), and write a note on what it's for");
+                    var edited = EditCondition(Window.GetWindow(this), a.Condition ?? cond.Text, LightPresets.AlertName(a));
+                    if (edited == null || edited == (a.Condition ?? "")) return;
+                    a.Condition = edited; cond.Text = edited;
+                    Changed(); showHint();
+                }, "Edit it in a bigger box (several lines, to paste a long formula)");
                 big.Margin = new Thickness(4, 0, 0, 0);
                 custom.Children.Add(big);
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -1517,8 +1497,23 @@ namespace User.FXProRpmSync
                 custom.Children.Add(hold);
                 custom.Children.Add(new TextBlock { Text = "s more", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
                 outer.Children.Add(custom);
-                showNote();
-                outer.Children.Add(note);
+                // the person's note on what it's for ("the voice button: someone is talking"), also on its name
+                var noteRow = new DockPanel { Margin = new Thickness(62, 6, 0, 0) };
+                var noteLabel = new TextBlock { Text = "Note", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+                DockPanel.SetDock(noteLabel, Dock.Left);
+                noteRow.Children.Add(noteLabel);
+                var note = new TextBox { Text = a.Note ?? "", MaxWidth = 720, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 560, ToolTip = "What this alert is for, in your words" };
+                on.ToolTip = string.IsNullOrWhiteSpace(a.Note) ? null : a.Note;
+                note.LostFocus += (s, e) =>
+                {
+                    var n = note.Text.Trim();
+                    if (n == (a.Note ?? "")) return;
+                    a.Note = n.Length > 0 ? n : null;
+                    on.ToolTip = a.Note;
+                    Changed();
+                };
+                noteRow.Children.Add(note);
+                outer.Children.Add(noteRow);
                 showHint();
                 outer.Children.Add(hint);
             }
