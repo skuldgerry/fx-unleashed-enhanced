@@ -166,6 +166,9 @@ namespace User.FXProRpmSync
         public AlertTrigger Trigger;
         public bool Enabled = true;
         public string Color = "#FFB000";
+        /// <summary>No colour of its own: its lights keep the colour they have (the effect's, or one of their own) and only
+        /// blink or pulse in its rhythm and style.</summary>
+        public bool KeepColour;
         public List<LedGroup> Groups = new List<LedGroup>();
         /// <summary>Blinks per second (0 = steady).</summary>
         public double BlinkHz = 10;
@@ -899,7 +902,8 @@ namespace User.FXProRpmSync
                     taken[led] = true;
                     painted = true;
                     double level = AlertLevel(a, i, leds.Length, age);
-                    frame[led] = level <= 0 ? new LedColor(0, 0, 0, 1) : new LedColor((byte)(r * level), (byte)(g * level), (byte)(b * level), 90);
+                    if (a.KeepColour) frame[led] = level <= 0 ? new LedColor(0, 0, 0, 1) : Scaled(frame[led], level); // the light's own colour, in the alert's rhythm
+                    else frame[led] = level <= 0 ? new LedColor(0, 0, 0, 1) : new LedColor((byte)(r * level), (byte)(g * level), (byte)(b * level), 90);
                 }
             }
             return painted;

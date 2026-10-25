@@ -28,6 +28,10 @@ namespace User.FXProRpmSync
         private readonly TextBox hexBox;
         private readonly Action<string> set;
         private readonly Popup popup;
+        // "no colour" (an alert that keeps its lights' own): offered when there's a label for it
+        private readonly Action<bool> setNone;
+        private bool none;
+        private const string NoneText = "keep";
 
         /// <summary>The palette and picker as they show when the swatch is clicked (for the offline picture of it).</summary>
         internal FrameworkElement Panel(string hex) { FromHex(hex); var c = (FrameworkElement)popup.Child; popup.Child = null; return c; }
@@ -39,9 +43,13 @@ namespace User.FXProRpmSync
         private readonly Border hueMark = new Border { Width = 4, Height = HueH + 4, BorderBrush = Brushes.White, BorderThickness = new Thickness(1.5), IsHitTestVisible = false };
         private readonly Border preview = new Border { Width = 34, Height = 22, CornerRadius = new CornerRadius(3), BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1) };
 
-        public ColourField(string hex, Action<string> set)
+        public ColourField(string hex, Action<string> set) : this(hex, set, null, false, null) { }
+
+        /// <param name="noneLabel">With one: the popup offers "no colour" with this label; `setNone` hears it switched on (true) or off (a colour picked).</param>
+        public ColourField(string hex, Action<string> set, string noneLabel, bool isNone, Action<bool> setNone)
         {
             this.set = set;
+            this.setNone = setNone;
             Orientation = Orientation.Horizontal;
             swatch = new Border { Width = 26, Height = 22, CornerRadius = new CornerRadius(4), BorderThickness = new Thickness(1), BorderBrush = Brushes.Gray, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center,
                                   ToolTip = "Click: ready colours, or pick any colour" };
@@ -52,6 +60,14 @@ namespace User.FXProRpmSync
 
             popup = new Popup { PlacementTarget = swatch, StaysOpen = false, AllowsTransparency = true };
             var body = new StackPanel { Margin = new Thickness(8) };
+            if (noneLabel != null)
+            {
+                var off = new Border { Padding = new Thickness(8, 5, 8, 6), Margin = new Thickness(2, 0, 2, 8), CornerRadius = new CornerRadius(4), BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1), Cursor = Cursors.Hand,
+                                       Background = Theme.B(Color.FromRgb(0x1B, 0x1D, 0x21)),
+                                       Child = new TextBlock { Text = "∅  " + noneLabel, Foreground = Theme.Text, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 196 } };
+                off.MouseLeftButtonUp += (s, e) => { popup.IsOpen = false; SetNone(true); };
+                body.Children.Add(off);
+            }
             var grid = new UniformGrid { Columns = 8 };
             foreach (var c in Palette)
             {
@@ -67,6 +83,23 @@ namespace User.FXProRpmSync
             swatch.MouseLeftButtonUp += (s, e) => { FromHex(hexBox.Tag as string ?? hexBox.Text); popup.IsOpen = true; };
             hexBox.LostFocus += (s, e) => Commit();
             hexBox.KeyDown += (s, e) => { if (e.Key == Key.Enter) Commit(); };
+            if (isNone && noneLabel != null) { none = true; ShowNone(); }
+        }
+
+        /// <summary>"No colour" on or off; picking any colour switches it off.</summary>
+        private void SetNone(bool on)
+        {
+            if (none == on) return;
+            none = on;
+            if (on) ShowNone(); else swatch.Child = null;
+            setNone?.Invoke(on);
+        }
+
+        private void ShowNone()
+        {
+            swatch.Background = Theme.B(Color.FromRgb(0x1B, 0x1D, 0x21));
+            swatch.Child = new TextBlock { Text = "∅", Foreground = Theme.Text2, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 13 };
+            hexBox.Text = NoneText;
         }
 
         /// <summary>The square (saturation across, brightness down) and the hue strip, with the colour as it is now.</summary>
@@ -177,11 +210,14 @@ namespace User.FXProRpmSync
         private void Commit()
         {
             var t = hexBox.Text.Trim();
+            if (none && t == NoneText) return; // still "no colour"
             if (!t.StartsWith("#")) t = "#" + t;
-            if (t.Length != 7 || !int.TryParse(t.Substring(1), System.Globalization.NumberStyles.HexNumber, null, out _)) { hexBox.Text = hexBox.Tag as string ?? "#FFFFFF"; return; }
+            if (t.Length != 7 || !int.TryParse(t.Substring(1), System.Globalization.NumberStyles.HexNumber, null, out _)) { if (none) ShowNone(); else hexBox.Text = hexBox.Tag as string ?? "#FFFFFF"; return; }
             t = t.ToUpperInvariant();
             hexBox.Text = t;
-            if (t == hexBox.Tag as string) return;
+            bool wasNone = none;
+            SetNone(false);
+            if (t == hexBox.Tag as string && !wasNone) return;
             Show(t);
             set(t);
         }

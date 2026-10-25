@@ -1377,7 +1377,9 @@ namespace User.FXProRpmSync
             var on = Theme.Switch(LightPresets.AlertName(a), a.Enabled, v => { a.Enabled = v; Changed(); });
             on.Width = 184; on.Margin = new Thickness(4, 4, 0, 0);
             row.Children.Add(on);
-            row.Children.Add(new ColourField(a.Color, hex => { a.Color = hex; Changed(); }) { Margin = new Thickness(0, 0, 8, 0) });
+            // "no colour" in its palette: the lights keep theirs (the effect's, or a colour of their own) and only blink or pulse
+            row.Children.Add(new ColourField(a.Color, hex => { a.Color = hex; Changed(); }, "No colour: the lights keep theirs and just blink",
+                                             a.KeepColour, k => { a.KeepColour = k; Changed(); }) { Margin = new Thickness(0, 0, 8, 0) });
             foreach (LedGroup g in model.AlertGroups)
             {
                 var gg = g;

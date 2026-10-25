@@ -68,6 +68,17 @@ static class OwnColorTests
 
         Levels();
 
+        // an alert with no colour of its own: the light keeps the colour it has, and blinks
+        var e2 = new LightEngine();
+        var q = new LightProfile { MaxBrightness = 90, StillWhileDriving = true };
+        q.Groups[LedGroup.Buttons] = new GroupLighting { Effect = LightEffect.Solid, Colors = new List<string> { "#FFFFFF" } };
+        q.OwnColors.Add(new OwnColor { Leds = { 3 }, Color = "#FF00FF", Effect = LightEffect.Solid });
+        q.Alerts.Add(new AlertRule { Trigger = AlertTrigger.Abs, Color = "#00FF00", KeepColour = true, BlinkHz = 2, Groups = { LedGroup.Buttons } });
+        var w = new DashValues { Running = true, MaxRpm = 8000, Rpm = 3000, AbsActive = true };
+        var seen = Enumerable.Range(0, 20).Select(k => e2.Render(q, w, null, 5 + k * 0.05, false, new LightMoment { State = CarState.Driving })).ToList();
+        Check("an alert keeping the colour blinks the light's own", seen.Any(f => f[3].R == 255 && f[3].B == 255 && f[3].G == 0) && seen.Any(f => f[3].R + f[3].G + f[3].B == 0) &&
+                                                                   seen.All(f => f[3].G == 0) && seen.Any(f => f[4].R == 255 && f[4].G == 255));
+
         var alert = new AlertRule { Trigger = AlertTrigger.Custom, Name = "Radio", Note = "The voice button: someone is talking" };
         var kept = JsonConvert.DeserializeObject<AlertRule>(JsonConvert.SerializeObject(alert.Clone()));
         FeatureTests.Check("alert: its note is kept in a copy and the settings", kept.Note == alert.Note);

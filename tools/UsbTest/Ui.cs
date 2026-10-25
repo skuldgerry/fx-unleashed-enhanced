@@ -157,6 +157,7 @@ static class UiTest
             mine.Groups[LedGroup.Encoders] = new GroupLighting { Effect = LightEffect.Levels, Colors = new System.Collections.Generic.List<string> { "#00FF40", "#FFB000", "#FF0020" } };
             mine.Alerts.Insert(2, new AlertRule { Trigger = AlertTrigger.Custom, Name = "Damage", Condition = "[CarDamagesMax] > 5", Color = "#FF00C0", Groups = { LedGroup.Buttons },
                                                   Note = "All the buttons light pink when the car is damaged: time to box." });
+            mine.Alerts.Find(x => x.Trigger == AlertTrigger.PitLimiter).KeepColour = true;
             u.PressLights = true; u.ButtonLeds[1] = 0; u.ButtonLeds[2] = 6;
             mine.OwnColors.Add(new OwnColor { Leds = { 4, 5 }, Color = "#FF0020" });
             mine.OwnColors.Add(new OwnColor { Leds = { 13 }, Color = "#0060FF", KeepEffect = true });
@@ -502,7 +503,7 @@ static class UiTest
     {
         var t = new System.Threading.Thread(() =>
         {
-            var panel = new ColourField("#2E86FF", _ => { }).Panel("#2E86FF");
+            var panel = new ColourField("#2E86FF", _ => { }, "No colour: the lights keep theirs and just blink", false, _ => { }).Panel("#2E86FF");
             var w = new Window { SizeToContent = SizeToContent.WidthAndHeight, Left = -3000, Top = 0, ShowActivated = false, ShowInTaskbar = false, Content = panel, Background = Brushes.Black };
             w.Show();
             SaveElement(panel, Path.Combine(dir, "colour-picker.png"));
