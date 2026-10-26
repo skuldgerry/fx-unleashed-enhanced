@@ -8,6 +8,12 @@ their names, so SimHub keeps its activation and control bindings; only the name 
 Based on FX Unleashed 0.7.6. Versions add a digit to the original's: 0.7.61 is FX Unleashed 0.7.6 with this edition's
 first update.
 
+## 0.7.62
+
+- A custom alert's delete button sits on its second row (with its name and condition): on the alert's own row it went
+  past the width and dropped under the arrows.
+- The own colours' effect box is wide enough for "The group's effect, in this colour".
+
 ## 0.7.61
 
 - **Buttons and encoders in colours of their own** while driving: picked on the drawing of the wheel under Buttons or
