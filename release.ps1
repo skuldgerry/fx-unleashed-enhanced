@@ -21,7 +21,9 @@ param(
     [int]$FirmwareMin = 6,
     [int]$FirmwareRecommended = 6,
     [switch]$SkipTests,
-    [switch]$Publish
+    [switch]$Publish,
+    # the notes file as it is, only the changes (FX Unleashed Enhanced: the README has the disclaimer and the firmware)
+    [switch]$ChangesOnly
 )
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -106,7 +108,8 @@ $body = if ($NotesFile) { Get-Content -Raw $NotesFile } else {
 $disclaimer = (Get-Content -Raw (Join-Path $PSScriptRoot "docs\legal\disclaimer.md")).Trim()
 # every release says where the custom firmware and its install guide are (the plugin zip itself never holds firmware)
 $customFirmware = (Get-Content -Raw (Join-Path $PSScriptRoot "docs\releases\_custom-firmware.md")).Trim() -replace '\{BUILD\}', $FirmwareRecommended
-[IO.File]::WriteAllText($notes, "> $($disclaimer -replace "`r?`n", ' ')`n`n$($body.Trim())`n`n$customFirmware`n")
+if ($ChangesOnly) { [IO.File]::WriteAllText($notes, "$($body.Trim())`n") }
+else { [IO.File]::WriteAllText($notes, "> $($disclaimer -replace "`r?`n", ' ')`n`n$($body.Trim())`n`n$customFirmware`n") }
 
 Write-Host "   $zip"
 Write-Host "   $manifestPath"

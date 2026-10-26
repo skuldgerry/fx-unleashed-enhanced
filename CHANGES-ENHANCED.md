@@ -10,9 +10,13 @@ first update.
 
 ## 0.7.62
 
+- **Update notes in colour**: when an update is offered, the About tab shows only the release's changes, each kind in a
+  band of its colour (new green, fixed amber, changed blue). The release notes on GitHub list only the changes too.
 - A custom alert's delete button sits on its second row (with its name and condition): on the alert's own row it went
   past the width and dropped under the arrows.
 - The own colours' effect box is wide enough for "The group's effect, in this colour".
+- Settings from the first test builds, which looked for releases in a repository that doesn't exist, are pointed at this
+  edition's releases.
 
 ## 0.7.61
 

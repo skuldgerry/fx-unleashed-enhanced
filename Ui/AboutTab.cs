@@ -18,7 +18,7 @@ namespace User.FXProRpmSync
         private Updater U => plugin.Updates;
         private UpdateSettings S => plugin.Settings.Updates;
         private readonly TextBlock state, notesTitle, requirement, rollbackText;
-        private readonly TextBox notes;
+        private readonly ContentControl notes;
         private readonly Button check, install, skip, restart, rollback, page;
         private readonly Border releaseBox;
         private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -47,7 +47,8 @@ namespace User.FXProRpmSync
             rel.Children.Add(notesTitle);
             requirement = new TextBlock { Foreground = Theme.Amber, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
             rel.Children.Add(requirement);
-            notes = new TextBox { IsReadOnly = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 240, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, FontSize = 12 };
+            // the release's changes, in colour (ReleaseNotes)
+            notes = new ContentControl();
             rel.Children.Add(notes);
             rel.Children.Add(new TextBlock { Text = "Provided as is, without warranty. Nothing installs without your click; the download is checked against the release's checksums.",
                                              Foreground = Theme.Text3, FontSize = 11.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) });
@@ -170,7 +171,7 @@ namespace User.FXProRpmSync
             {
                 notesTitle.Text = (string.IsNullOrWhiteSpace(r.Name) ? "v" + r.Version : r.Name) + (r.Prerelease ? "  ·  beta" : "") +
                                   (r.Published > DateTime.MinValue ? "  ·  " + r.Published.ToLocalTime().ToString("d") : "");
-                if (notes.Text != r.Notes) notes.Text = r.Notes;
+                if (!Equals(notes.Tag, r.Notes)) { notes.Tag = r.Notes; notes.Content = ReleaseNotes.Render(r.Notes); }
                 var m = u.LatestManifest;
                 requirement.Text = m?.firmware != null && m.firmware.min > 0 ? $"Unleashed mode in this version needs wheel firmware build {m.firmware.min} or newer (Wheel tab > Firmware)." : "";
                 requirement.Visibility = requirement.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;

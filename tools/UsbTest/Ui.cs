@@ -513,6 +513,28 @@ static class UiTest
         t.Start(); t.Join();
     }
 
+    /// <summary>The update box with a release's notes (a file given, else a sample), as the About tab shows them.</summary>
+    public static void RunReleaseNotes(string dir, string notesFile)
+    {
+        var notes = notesFile != null ? File.ReadAllText(notesFile) :
+            "### New\n\n- **Update notes in colour.** Only what changed.\n\n### Fixed\n\n- One fix.\n\n### Changed\n\n- One change.\n";
+        var t = new System.Threading.Thread(() =>
+        {
+            var rel = new StackPanel();
+            rel.Children.Add(new TextBlock { Text = "FX Unleashed Enhanced v0.7.62", FontFamily = Theme.Display, FontSize = 15, FontWeight = FontWeights.SemiBold, Foreground = Theme.Text, Margin = new Thickness(0, 0, 0, 6) });
+            rel.Children.Add(ReleaseNotes.Render(notes));
+            var box = new Border { Background = Theme.Raised, CornerRadius = new CornerRadius(8), Padding = new Thickness(14), Width = 760, Child = rel };
+            var panel = new Border { Background = Theme.Card, Padding = new Thickness(16), Child = box };
+            var w = new Window { SizeToContent = SizeToContent.WidthAndHeight, Left = -3000, Top = 0, ShowActivated = false, ShowInTaskbar = false, Content = panel, Background = Brushes.Black };
+            Theme.Apply(w);
+            w.Show();
+            SaveElement(panel, Path.Combine(dir, "release-notes.png"));
+            w.Close();
+        });
+        t.SetApartmentState(System.Threading.ApartmentState.STA);
+        t.Start(); t.Join();
+    }
+
     private static void SaveElement(FrameworkElement e, string file)
     {
         e.UpdateLayout();
