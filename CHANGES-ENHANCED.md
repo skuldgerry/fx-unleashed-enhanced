@@ -5,7 +5,23 @@ releases. Changed by [skuldgerry](https://github.com/skuldgerry) from 2026-10-12
 (GPL-3.0 or later, see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The DLL (`User.FXProRpmSync.dll`) and the plugin class keep
 their names, so SimHub keeps its activation and control bindings; only the name it shows changes.
 
-Based on FX Unleashed 0.7.6.
+Based on FX Unleashed 0.7.6. Versions add a digit to the original's: 0.7.61 is FX Unleashed 0.7.6 with this edition's
+first update.
+
+## 0.7.61
+
+- **Buttons and encoders in colours of their own** while driving: picked on the drawing of the wheel under Buttons or
+  Encoders; the group's effect in that colour (on the encoders' setting levels, dim low and full high) or an effect of
+  their own in it. Over the group's effect, under the pit limiter, the rev bar's extras and the alerts; an encoder's blink
+  after a change shows whatever they do.
+- **Alerts with no colour**: their lights keep the colour they have and just blink or pulse in the alert's rhythm.
+- **Custom alerts**: a note on what each is for; the condition in a bigger box (the pencil), to paste a long formula.
+- **Any colour**: colour fields open the ready colours and a picker (saturation and brightness, hue).
+- **Driver number screensaver**: a number and a name, each switched on and in its colour, a line under it that a light
+  runs along or that breathes; the FX Unleashed Enhanced logo with neither. Painted savers' art is cached by what it
+  shows, not only by its kind.
+- **Dashes from a zip**: Import a file and dropping onto the Dashes tab take a zip of dashes, each checked like a file.
+- A text box's text can start at the top (the theme pinned it to the middle).
 
 ## Lights
 

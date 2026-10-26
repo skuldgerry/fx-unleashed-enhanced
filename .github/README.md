@@ -5,7 +5,8 @@
 <p align="center">
   An enhanced edition of <a href="https://github.com/fxunleashed/fx-unleashed"><b>FX Unleashed</b></a>, the free SimHub
   plugin for the Simagic FX Pro, GT Neo and FX: more ways to see your lights on the wheel while you set them up, alerts on
-  single buttons, measured shift lights for some iRacing cars, and a backup of your settings.
+  single buttons, buttons and encoders in colours of their own, a driver number screensaver, measured shift lights for
+  some iRacing cars, and a backup of your settings.
 </p>
 
 > [!IMPORTANT]
@@ -24,7 +25,9 @@
 All the real work behind this plugin is **[FX Unleashed](https://github.com/fxunleashed/fx-unleashed)** by
 **ziadkadry99** and its contributors: the plugin itself, Unleashed mode and its custom firmware, the dash format and
 designer, the library, the lights engine and everything else. Its website is **[fxunleashed.com](https://fxunleashed.com)**.
-This edition follows each FX Unleashed release (currently **0.7.6**) and adds the changes below on top.
+This edition follows each FX Unleashed release (currently **0.7.6**) and adds the changes below on top. Its versions add
+a digit to the original's: **0.7.61** is FX Unleashed 0.7.6 with this edition's first update, 0.7.62 the next, 0.7.70
+the first on FX Unleashed 0.7.7.
 
 For setup, the custom firmware, dashes, the library and everything not listed here, the original documentation applies:
 its **[README](../README.md)**, its **[setup guide](../docs/setup.md)** and its website. Every change of this edition is
@@ -76,6 +79,50 @@ of "Light a button while it's pressed".
 
 ![The Button lights card](../docs/enhanced/button-lights.png)
 
+### Buttons and encoders in colours of their own
+
+Under **Buttons** and **Encoders** in "Your lights", pick lights on the drawing of the wheel (click them, or press their
+buttons) and give them a colour that stays theirs while you drive: the pit limiter button always red, the TC encoder
+always blue, easy to find. Each row either keeps **the group's effect in that colour** (a plasma ripples, a breath fades,
+in shades of that one colour; on the encoders' setting levels, dim for a low setting and full for a high one) or gets
+**an effect of its own** in it: steady, breathing, heartbeat, strobes, sparkle or twinkling stars. Alerts and the pit
+limiter still show over them, and so does an encoder's blink when its setting changes.
+
+### Alerts: no colour, a note, long conditions
+
+- An alert's colour can be **No colour**: its lights keep the colour they have (the effect's, or one of their own) and
+  just blink or pulse in the alert's rhythm.
+- Each custom alert has a **note** for what it's for, under its row and on its name.
+- The pencil next to **On while** opens the condition in a bigger box, to paste and read a long formula.
+
+The example these were made for: the voice button keeps its colour and blinks while someone is talking on iRacing's radio,
+so you know even with the sound muted or on the wrong device. A custom alert with No colour, the voice button picked, and
+this condition:
+
+```
+[DataCorePlugin.GameRawData.Telemetry.RadioTransmitCarIdx] >= 0 && [DataCorePlugin.GameRawData.Telemetry.RadioTransmitCarIdx] != [DataCorePlugin.GameRawData.Telemetry.PlayerCarIdx]
+```
+
+### Any colour
+
+Every colour field opens the ready colours and a picker for any other: a square of saturation and brightness over a strip
+of hues. An alert's also offers No colour.
+
+![The colour picker: no colour, ready colours, and any colour](../docs/enhanced/colour-picker.png)
+
+### Driver number screensaver
+
+Your racing number and your name, each switched on on its own and each in its colour, like the Lovely Dashboard's idle
+screen: built in (Idle & sleep tab) instead of a picture to make and upload. It can have a light running along a line
+under the number, or that line breathing. With neither the number nor the name, it shows the FX Unleashed Enhanced logo.
+
+![The driver number screensaver: a number and a name, and the logo](../docs/enhanced/driver-number.png)
+
+### Dashes from a zip
+
+The Dashes tab's **Import a file…** (and dropping onto the tab) takes a zip of dashes too, such as the all-dashes pack in
+my dashes' releases: each dash in it is checked like a dash file of its own.
+
 ### Measured shift lights
 
 FX Unleashed 0.7.6 reads iRacing cars' shift lights from the sim's files, but it keeps only each light's first colour:
@@ -120,7 +167,8 @@ start, so an official update doesn't replace this edition by surprise.
 
 **Going back to the official plugin:** install its DLL the same way, and in About > More set "Releases from" back to
 `fxunleashed/fx-unleashed`. Your settings load there too; it ignores what it doesn't know (single-button alerts and their
-hold time are dropped the next time it saves). Export a backup first.
+hold time, colours of their own, the driver number and alerts' notes are dropped the next time it saves). Export a backup
+first.
 
 ## License and credits
 
