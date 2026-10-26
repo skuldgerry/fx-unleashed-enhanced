@@ -20,8 +20,10 @@ namespace User.FXProRpmSync
         private static void MigrateSettings(FXProRpmSyncSettings s)
         {
             if (s.Updates == null) s.Updates = new UpdateSettings();
-            // settings from the official plugin look for its releases, which would replace this edition on the next update
-            if (string.IsNullOrWhiteSpace(s.Updates.Repo) || string.Equals(s.Updates.Repo, Updater.UpstreamRepo, StringComparison.OrdinalIgnoreCase)) s.Updates.Repo = Updater.DefaultRepo;
+            // settings from the official plugin look for its releases, which would replace this edition on the next update;
+            // the first test builds of this edition looked for "skuldgerry/fx-unleashed", which doesn't exist ("No releases found")
+            if (string.IsNullOrWhiteSpace(s.Updates.Repo) || string.Equals(s.Updates.Repo, Updater.UpstreamRepo, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(s.Updates.Repo, "skuldgerry/fx-unleashed", StringComparison.OrdinalIgnoreCase)) s.Updates.Repo = Updater.DefaultRepo;
             int from = s.SettingsVersion;
             if (from == CurrentSettingsVersion) return;
             BackupSettings(from);
