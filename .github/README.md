@@ -88,6 +88,8 @@ in shades of that one colour; on the encoders' setting levels, dim for a low set
 **an effect of its own** in it: steady, breathing, heartbeat, strobes, sparkle or twinkling stars. Alerts and the pit
 limiter still show over them, and so does an encoder's blink when its setting changes.
 
+![Your lights, Buttons: a plasma, and the pit limiter button in red of its own](../docs/enhanced/own-colours.png)
+
 ### Alerts: no colour, a note, long conditions
 
 - An alert's colour can be **No colour**: its lights keep the colour they have (the effect's, or one of their own) and
@@ -102,6 +104,10 @@ this condition:
 ```
 [DataCorePlugin.GameRawData.Telemetry.RadioTransmitCarIdx] >= 0 && [DataCorePlugin.GameRawData.Telemetry.RadioTransmitCarIdx] != [DataCorePlugin.GameRawData.Telemetry.PlayerCarIdx]
 ```
+
+![Two custom alerts: the headlight flash with its note, and the voice button with no colour](../docs/enhanced/alert-note.png)
+
+![The condition in the bigger box](../docs/enhanced/alert-condition.png)
 
 ### Any colour
 
