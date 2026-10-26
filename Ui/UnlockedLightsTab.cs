@@ -1278,7 +1278,7 @@ namespace User.FXProRpmSync
             };
             row.Children.Add(pick);
             row.Children.Add(new ColourField(o.Color, hex => { o.Color = hex; Changed(); }) { Margin = new Thickness(8, 0, 8, 0) });
-            var how = new ComboBox { Width = 210, VerticalAlignment = VerticalAlignment.Center,
+            var how = new ComboBox { Width = 250, VerticalAlignment = VerticalAlignment.Center,
                                      ToolTip = "The group's effect in this colour: it keeps its movement and brightness (a plasma, a breath, a blink; on the encoders' levels, " +
                                                "dim low and full high) in shades of this colour. Or an effect of their own, in this colour." };
             foreach (var look in OwnLooks)
@@ -1450,8 +1450,8 @@ namespace User.FXProRpmSync
             if (a.Trigger == AlertTrigger.Custom)
             {
                 var del = Small("", () => { p.Alerts.Remove(a); Changed(); BuildAlerts(p); }, "Delete this alert");
-                del.Margin = new Thickness(6, 0, 0, 0);
-                row.Children.Add(del);
+                // on the row under it (with its name and condition): on the alert's own row it pushed the line past the width
+                del.Margin = new Thickness(16, 0, 0, 0);
 
                 var custom = new WrapPanel { Margin = new Thickness(62, 6, 0, 0) };
                 var name = new TextBox { Width = 180, Text = a.Name ?? "", ToolTip = "Its name in this list" };
@@ -1498,6 +1498,7 @@ namespace User.FXProRpmSync
                 custom.Children.Add(new TextBlock { Text = "Stays on", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 8, 0) });
                 custom.Children.Add(hold);
                 custom.Children.Add(new TextBlock { Text = "s more", Foreground = Theme.Text2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+                custom.Children.Add(del);
                 outer.Children.Add(custom);
                 // the person's note on what it's for ("the voice button: someone is talking"), also on its name
                 var noteRow = new DockPanel { Margin = new Thickness(62, 6, 0, 0) };
